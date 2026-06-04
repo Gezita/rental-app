@@ -1,0 +1,435 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  properties              Property[]
+  documents               Document[]
+  settings                UserSettings?
+  greenButtonOAuthStates  GreenButtonOAuthState[]
+}
+
+model UserSettings {
+  id                       String  @id @default(cuid())
+  userId                   String  @unique
+  landlordName             String?
+  paymentInstructions      String?
+  statementNotes           String?
+  autoSendStatements       Boolean @default(false)
+  autoSendDayOfMonth       Int     @default(1)
+  leaseReminderDays        Int     @default(30)
+  stripePaymentsEnabled    Boolean @default(false)
+  utilityAutomationEnabled Boolean @default(false)
+  user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Property {
+  id           String   @id @default(cuid())
+  userId       String
+  name         String
+  addressLine1 String
+  addressLine2 String?
+  city         String
+  province     String?
+  postalCode   String?
+  country      String   @default("Canada")
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user                   User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  units                  Unit[]
+  utilityBills           UtilityBill[]
+  documents              Document[]
+  maintenanceRecords     MaintenanceRecord[]
+  greenButtonConnections GreenButtonConnection[]
+}
+
+model Unit {
+  id             String   @id @default(cuid())
+  propertyId     String
+  name           String
+  rentAmountCents Int
+  rentDueDay     Int      @default(1)
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property           Property            @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenants            Tenant[]
+  leases             Lease[]
+  utilityRules       UtilityRule[]
+  statements         Statement[]
+  documents          Document[]
+  maintenanceRecords MaintenanceRecord[]
+  utilityBillSplits  UtilityBillSplit[]
+}
+
+model Tenant {
+  id                    String    @id @default(cuid())
+  unitId                String
+  firstName             String
+  lastName              String
+  email                 String?
+  phone                 String?
+  moveInDate            DateTime?
+  moveOutDate           DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  isActive              Boolean   @default(true)
+  notes                 String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  unit       Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  leases     Lease[]
+  statements Statement[]
+  documents  Document[]
+}
+
+model Lease {
+  id              String      @id @default(cuid())
+  unitId          String
+  tenantId        String
+  documentId      String?
+  leaseStartDate  DateTime
+  leaseEndDate    DateTime?
+  rentAmountCents Int
+  rentDueDay      Int
+  status          LeaseStatus @default(active)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  unit     Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  document Document? @relation(fields: [documentId], references: [id])
+}
+
+model UtilityRule {
+  id             String      @id @default(cuid())
+  unitId         String
+  utilityType    UtilityType
+  tenantPays     Boolean     @default(true)
+  percentage     Float       @default(0)
+  includedInRent Boolean     @default(false)
+  notes          String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, utilityType])
+}
+
+model UtilityBill {
+  id                      String            @id @default(cuid())
+  propertyId              String
+  utilityType             UtilityType
+  providerName            String?
+  amountCents             Int
+  billingPeriodStart      DateTime
+  billingPeriodEnd        DateTime
+  dueDate                 DateTime?
+  documentId              String?
+  notes                   String?
+  source                  UtilityBillSource @default(manual)
+  greenButtonExternalId   String?
+  greenButtonConnectionId String?
+  createdAt               DateTime          @default(now())
+  updatedAt               DateTime          @updatedAt
+
+  property              Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  document              Document?              @relation(fields: [documentId], references: [id])
+  greenButtonConnection GreenButtonConnection? @relation(fields: [greenButtonConnectionId], references: [id], onDelete: SetNull)
+  splits                UtilityBillSplit[]
+
+  @@unique([greenButtonConnectionId, greenButtonExternalId])
+}
+
+model GreenButtonConnection {
+  id             String                      @id @default(cuid())
+  propertyId     String
+  provider       GreenButtonProvider
+  utilityType    UtilityType
+  status         GreenButtonConnectionStatus @default(pending)
+  subscriptionId String?
+  usagePointId   String?
+  resourceUri    String?
+  accessToken    String?
+  refreshToken   String?
+  tokenExpiresAt DateTime?
+  scope          String?
+  accountLabel   String?
+  lastSyncedAt   DateTime?
+  lastSyncError  String?
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+
+  property     Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  utilityBills UtilityBill[]
+
+  @@unique([propertyId, provider, utilityType])
+}
+
+model GreenButtonOAuthState {
+  id         String              @id @default(cuid())
+  userId     String
+  propertyId String
+  provider   GreenButtonProvider
+  state      String              @unique
+  expiresAt  DateTime
+  createdAt  DateTime            @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UtilityBillSplit {
+  id            String   @id @default(cuid())
+  utilityBillId String
+  unitId        String
+  percentage    Float
+  amountCents   Int
+  isOverride    Boolean  @default(false)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  utilityBill UtilityBill @relation(fields: [utilityBillId], references: [id], onDelete: Cascade)
+  unit        Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model Statement {
+  id                   String          @id @default(cuid())
+  unitId               String
+  tenantId             String
+  statementNumber      String          @unique
+  statementMonth       Int
+  statementYear        Int
+  issueDate            DateTime
+  dueDate              DateTime
+  rentAmountCents      Int
+  utilityTotalCents    Int             @default(0)
+  discountTotalCents   Int             @default(0)
+  adjustmentTotalCents Int             @default(0)
+  previousBalanceCents Int             @default(0)
+  totalDueCents        Int
+  status               StatementStatus @default(draft)
+  paidAmountCents      Int             @default(0)
+  payToken             String?         @unique
+  stripeCheckoutSessionId String?
+  stripePaymentIntentId   String?
+  pdfDocumentId        String?
+  emailSentAt          DateTime?
+  autoSentAt           DateTime?
+  notes                String?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  unit      Unit                @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pdfDocument Document?         @relation("StatementPdf", fields: [pdfDocumentId], references: [id])
+  lineItems StatementLineItem[]
+  payments  Payment[]
+
+  @@unique([unitId, statementMonth, statementYear])
+}
+
+model StatementLineItem {
+  id                  String              @id @default(cuid())
+  statementId         String
+  type                StatementLineType
+  description         String
+  amountCents         Int
+  sourceUtilityBillId String?
+  sourceDocumentId    String?
+  calculationNote     String?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  statement Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  statementId     String
+  amountCents     Int
+  paymentDate     DateTime
+  paymentMethod   PaymentMethod
+  referenceNumber String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  statement Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  receipt   Receipt?
+}
+
+model Receipt {
+  id            String    @id @default(cuid())
+  paymentId     String    @unique
+  receiptNumber String    @unique
+  issueDate     DateTime
+  pdfDocumentId String?
+  emailSentAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  payment     Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  pdfDocument Document? @relation("ReceiptPdf", fields: [pdfDocumentId], references: [id])
+}
+
+model Document {
+  id            String           @id @default(cuid())
+  userId        String
+  propertyId    String?
+  unitId        String?
+  tenantId      String?
+  category      DocumentCategory
+  fileName      String
+  filePath      String
+  fileMimeType  String
+  fileSizeBytes Int
+  tags          String?
+  ltbFormCode   String?
+  sentToTenantAt DateTime?
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property          Property?     @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  unit              Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  leases            Lease[]
+  utilityBills      UtilityBill[]
+  statementPdfs     Statement[]   @relation("StatementPdf")
+  receiptPdfs       Receipt[]     @relation("ReceiptPdf")
+  maintenanceRecord MaintenanceRecord? @relation("MaintenanceInvoice")
+}
+
+model MaintenanceRecord {
+  id                String              @id @default(cuid())
+  propertyId        String
+  unitId            String?
+  category          MaintenanceCategory
+  title             String
+  description       String?
+  vendorName        String?
+  costCents         Int?
+  maintenanceDate   DateTime?
+  status            MaintenanceStatus   @default(planned)
+  invoiceDocumentId String?             @unique
+  notes             String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  property        Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit            Unit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  invoiceDocument Document? @relation("MaintenanceInvoice", fields: [invoiceDocumentId], references: [id])
+}
+
+enum LeaseStatus {
+  active
+  expired
+  terminated
+  draft
+}
+
+enum UtilityType {
+  gas
+  water
+  electricity
+  internet
+  other
+}
+
+enum StatementStatus {
+  draft
+  sent
+  partial
+  paid
+  overdue
+  cancelled
+}
+
+enum StatementLineType {
+  rent
+  utility
+  discount
+  adjustment
+  previous_balance
+  other
+}
+
+enum PaymentMethod {
+  e_transfer
+  cash
+  cheque
+  bank_deposit
+  stripe
+  other
+}
+
+enum DocumentCategory {
+  lease
+  utility_bill
+  statement
+  receipt
+  maintenance_invoice
+  maintenance_receipt
+  ltb_notice
+  notice
+  photo
+  other
+}
+
+enum MaintenanceCategory {
+  plumbing
+  electrical
+  hvac
+  appliance
+  roof
+  pest_control
+  cleaning
+  general_repair
+  other
+}
+
+enum MaintenanceStatus {
+  planned
+  in_progress
+  completed
+  cancelled
+}
+
+enum UtilityBillSource {
+  manual
+  green_button
+}
+
+enum GreenButtonProvider {
+  sandbox
+  enbridge
+  alectra
+}
+
+enum GreenButtonConnectionStatus {
+  pending
+  connected
+  expired
+  error
+  revoked
+}
