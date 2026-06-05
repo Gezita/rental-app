@@ -24,7 +24,7 @@ export default async function NewUnitPage({
       <PageBackNav parent={{ href: `/properties/${propertyId}`, label: property.name }} />
       <div>
         <h1 className="text-2xl font-bold">Add Unit</h1>
-        <p className="text-slate-500">Define rent and due date for this unit</p>
+        <p className="text-muted">Define rent and due date for this unit</p>
       </div>
 
       <Card>

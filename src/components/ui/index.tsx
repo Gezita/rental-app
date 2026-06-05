@@ -1,5 +1,42 @@
 import * as React from "react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+
+export type ButtonVariant = "default" | "outline" | "ghost" | "destructive" | "secondary";
+export type ButtonSize = "default" | "sm" | "lg";
+
+const buttonVariants: Record<ButtonVariant, string> = {
+  default:
+    "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover focus-visible:ring-primary/30",
+  outline:
+    "border border-border bg-surface text-foreground hover:bg-surface-muted focus-visible:ring-primary/20",
+  ghost: "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
+  destructive: "bg-danger text-white hover:bg-danger/90 focus-visible:ring-danger/30",
+  secondary: "bg-surface-muted text-foreground hover:bg-border-subtle",
+};
+
+const buttonSizes: Record<ButtonSize, string> = {
+  default: "h-10 px-4 py-2",
+  sm: "h-8 rounded-lg px-3 text-sm",
+  lg: "h-11 rounded-lg px-8",
+};
+
+function buttonClassName({
+  variant = "default",
+  size = "default",
+  className,
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+}) {
+  return cn(
+    "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
+    buttonVariants[variant],
+    buttonSizes[size],
+    className
+  );
+}
 
 export function Button({
   className,
@@ -7,34 +44,24 @@ export function Button({
   size = "default",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "default" | "outline" | "ghost" | "destructive" | "secondary";
-  size?: "default" | "sm" | "lg";
+  variant?: ButtonVariant;
+  size?: ButtonSize;
 }) {
-  const variants = {
-    default:
-      "bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover focus-visible:ring-primary/30",
-    outline:
-      "border border-border bg-surface text-foreground hover:bg-surface-muted focus-visible:ring-primary/20",
-    ghost: "text-muted-foreground hover:bg-surface-muted hover:text-foreground",
-    destructive: "bg-danger text-white hover:bg-danger/90 focus-visible:ring-danger/30",
-    secondary: "bg-surface-muted text-foreground hover:bg-border-subtle",
-  };
-  const sizes = {
-    default: "h-10 px-4 py-2",
-    sm: "h-8 rounded-lg px-3 text-sm",
-    lg: "h-11 rounded-lg px-8",
-  };
+  return <button className={buttonClassName({ variant, size, className })} {...props} />;
+}
 
+export function ButtonLink({
+  className,
+  variant = "default",
+  size = "default",
+  href,
+  ...props
+}: React.ComponentProps<typeof Link> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+}) {
   return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50",
-        variants[variant],
-        sizes[size],
-        className
-      )}
-      {...props}
-    />
+    <Link href={href} className={buttonClassName({ variant, size, className })} {...props} />
   );
 }
 

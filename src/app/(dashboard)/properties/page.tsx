@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { PageBackNav } from "@/components/layout/page-back-nav";
-import { Alert, Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
+import { FlashAlert } from "@/components/flash-alert";
+import { Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
 
 export default async function PropertiesPage({
   searchParams,
@@ -28,14 +29,14 @@ export default async function PropertiesPage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Properties</h1>
-          <p className="text-slate-500">Manage your rental properties and units</p>
+          <p className="text-muted">Manage your rental properties and units</p>
         </div>
         <Link href="/properties/new">
           <Button>Add Property</Button>
         </Link>
       </div>
 
-      {deleted && <Alert>Property deleted.</Alert>}
+      {deleted && <FlashAlert clearParams={["deleted"]}>Property deleted.</FlashAlert>}
 
       <Card>
         <CardHeader>
@@ -43,7 +44,7 @@ export default async function PropertiesPage({
         </CardHeader>
         <CardContent>
           {properties.length === 0 ? (
-            <p className="text-sm text-slate-500">No properties yet. Add your first property to get started.</p>
+            <p className="text-sm text-muted">No properties yet. Add your first property to get started.</p>
           ) : (
             <Table>
               <thead>

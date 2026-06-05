@@ -20,7 +20,6 @@ export async function updateSettingsAction(formData: FormData) {
     Math.max(7, parseInt(String(formData.get("leaseReminderDays") || "30"), 10))
   );
   const stripePaymentsEnabled = formData.get("stripePaymentsEnabled") === "on";
-  const utilityAutomationEnabled = formData.get("utilityAutomationEnabled") === "on";
 
   await prisma.userSettings.upsert({
     where: { userId: user.id },
@@ -33,7 +32,6 @@ export async function updateSettingsAction(formData: FormData) {
       autoSendDayOfMonth,
       leaseReminderDays,
       stripePaymentsEnabled,
-      utilityAutomationEnabled,
     },
     update: {
       landlordName,
@@ -43,7 +41,6 @@ export async function updateSettingsAction(formData: FormData) {
       autoSendDayOfMonth,
       leaseReminderDays,
       stripePaymentsEnabled,
-      utilityAutomationEnabled,
     },
   });
 

@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui";
 
@@ -27,6 +28,7 @@ type StatCardProps = {
   accent?: StatAccent;
   valueClassName?: string;
   className?: string;
+  href?: string;
 };
 
 export function StatCard({
@@ -36,11 +38,13 @@ export function StatCard({
   accent = "neutral",
   valueClassName,
   className,
+  href,
 }: StatCardProps) {
-  return (
+  const card = (
     <Card
       className={cn(
         "relative overflow-hidden transition-shadow hover:shadow-[var(--shadow-md)]",
+        href && "h-full",
         className
       )}
     >
@@ -69,5 +73,13 @@ export function StatCard({
         )}
       </div>
     </Card>
+  );
+
+  if (!href) return card;
+
+  return (
+    <Link href={href} className="block h-full rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+      {card}
+    </Link>
   );
 }

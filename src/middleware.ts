@@ -7,6 +7,7 @@ const SESSION_COOKIE = "landlord_session";
 const protectedPrefixes = [
   "/dashboard",
   "/properties",
+  "/utility-bills",
   "/statements",
   "/notices",
   "/documents",
@@ -46,6 +47,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/properties/:path*",
+    "/utility-bills/:path*",
     "/statements/:path*",
     "/notices/:path*",
     "/documents/:path*",

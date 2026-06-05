@@ -24,7 +24,7 @@ export default async function NewMaintenancePage() {
       {properties.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               Add a property first.{" "}
               <Link href="/properties/new" className="underline">
                 Create property

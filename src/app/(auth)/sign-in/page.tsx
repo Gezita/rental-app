@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { signInAction } from "@/app/actions/auth";
+import { SubmitButton } from "@/components/submit-button";
+import { FlashAlert } from "@/components/flash-alert";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
@@ -10,13 +11,12 @@ import {
   CardTitle,
   Input,
   Label,
-  Alert,
 } from "@/components/ui";
 
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const params = await searchParams;
 
@@ -36,11 +36,12 @@ export default async function SignInPage({
           </CardHeader>
           <CardContent>
             {params.error && (
-              <Alert variant="error" className="mb-4">
+              <FlashAlert variant="error" className="mb-4" clearParams={["error"]}>
                 Invalid email or password.
-              </Alert>
+              </FlashAlert>
             )}
             <form action={signInAction} className="space-y-4">
+              {params.next && <input type="hidden" name="next" value={params.next} />}
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -61,9 +62,9 @@ export default async function SignInPage({
                   defaultValue="demo1234"
                 />
               </div>
-              <Button type="submit" className="w-full">
+              <SubmitButton className="w-full" pendingLabel="Signing in…">
                 Sign in
-              </Button>
+              </SubmitButton>
             </form>
             <p className="mt-4 text-center text-sm text-muted">
               No account?{" "}

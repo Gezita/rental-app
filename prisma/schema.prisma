@@ -15,10 +15,9 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  properties              Property[]
-  documents               Document[]
-  settings                UserSettings?
-  greenButtonOAuthStates  GreenButtonOAuthState[]
+  properties Property[]
+  documents  Document[]
+  settings   UserSettings?
 }
 
 model UserSettings {
@@ -30,9 +29,8 @@ model UserSettings {
   autoSendStatements       Boolean @default(false)
   autoSendDayOfMonth       Int     @default(1)
   leaseReminderDays        Int     @default(30)
-  stripePaymentsEnabled    Boolean @default(false)
-  utilityAutomationEnabled Boolean @default(false)
-  user                     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripePaymentsEnabled Boolean @default(false)
+  user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Property {
@@ -53,8 +51,7 @@ model Property {
   units                  Unit[]
   utilityBills           UtilityBill[]
   documents              Document[]
-  maintenanceRecords     MaintenanceRecord[]
-  greenButtonConnections GreenButtonConnection[]
+  maintenanceRecords MaintenanceRecord[]
 }
 
 model Unit {
@@ -143,57 +140,20 @@ model UtilityBill {
   billingPeriodStart      DateTime
   billingPeriodEnd        DateTime
   dueDate                 DateTime?
+  /// Calendar month/year this bill applies to when generating statements (1–12)
+  billMonth               Int?
+  billYear                Int?
   documentId              String?
   notes                   String?
-  source                  UtilityBillSource @default(manual)
-  greenButtonExternalId   String?
-  greenButtonConnectionId String?
-  createdAt               DateTime          @default(now())
-  updatedAt               DateTime          @updatedAt
+  source     UtilityBillSource @default(manual)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
-  property              Property               @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  document              Document?              @relation(fields: [documentId], references: [id])
-  greenButtonConnection GreenButtonConnection? @relation(fields: [greenButtonConnectionId], references: [id], onDelete: SetNull)
-  splits                UtilityBillSplit[]
+  property Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  document Document?            @relation(fields: [documentId], references: [id])
+  splits   UtilityBillSplit[]
 
-  @@unique([greenButtonConnectionId, greenButtonExternalId])
-}
-
-model GreenButtonConnection {
-  id             String                      @id @default(cuid())
-  propertyId     String
-  provider       GreenButtonProvider
-  utilityType    UtilityType
-  status         GreenButtonConnectionStatus @default(pending)
-  subscriptionId String?
-  usagePointId   String?
-  resourceUri    String?
-  accessToken    String?
-  refreshToken   String?
-  tokenExpiresAt DateTime?
-  scope          String?
-  accountLabel   String?
-  lastSyncedAt   DateTime?
-  lastSyncError  String?
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
-
-  property     Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  utilityBills UtilityBill[]
-
-  @@unique([propertyId, provider, utilityType])
-}
-
-model GreenButtonOAuthState {
-  id         String              @id @default(cuid())
-  userId     String
-  propertyId String
-  provider   GreenButtonProvider
-  state      String              @unique
-  expiresAt  DateTime
-  createdAt  DateTime            @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([propertyId, utilityType, billMonth, billYear])
 }
 
 model UtilityBillSplit {
@@ -417,19 +377,5 @@ enum MaintenanceStatus {
 
 enum UtilityBillSource {
   manual
-  green_button
-}
-
-enum GreenButtonProvider {
-  sandbox
-  enbridge
-  alectra
-}
-
-enum GreenButtonConnectionStatus {
-  pending
-  connected
-  expired
-  error
-  revoked
+  spreadsheet
 }

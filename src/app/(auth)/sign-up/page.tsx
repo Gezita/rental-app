@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { signUpAction } from "@/app/actions/auth";
+import { SubmitButton } from "@/components/submit-button";
+import { FlashAlert } from "@/components/flash-alert";
 import {
-  Button,
   Card,
   CardContent,
   CardDescription,
@@ -10,7 +11,6 @@ import {
   CardTitle,
   Input,
   Label,
-  Alert,
 } from "@/components/ui";
 
 export default async function SignUpPage({
@@ -42,9 +42,9 @@ export default async function SignUpPage({
         </CardHeader>
         <CardContent>
           {errorMessage && (
-            <Alert variant="error" className="mb-4">
+            <FlashAlert variant="error" className="mb-4" clearParams={["error"]}>
               {errorMessage}
-            </Alert>
+            </FlashAlert>
           )}
           <form action={signUpAction} className="space-y-4">
             <div className="space-y-2">
@@ -59,9 +59,9 @@ export default async function SignUpPage({
               <Label htmlFor="password">Password</Label>
               <Input id="password" name="password" type="password" required minLength={6} />
             </div>
-            <Button type="submit" className="w-full">
+            <SubmitButton className="w-full" pendingLabel="Creating account…">
               Create account
-            </Button>
+            </SubmitButton>
           </form>
           <p className="mt-4 text-center text-sm text-muted">
             Already have an account?{" "}

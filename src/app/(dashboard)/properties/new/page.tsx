@@ -8,7 +8,7 @@ export default function NewPropertyPage() {
       <PageBackNav parent={{ href: "/properties", label: "Properties" }} />
       <div>
         <h1 className="text-2xl font-bold">Add Property</h1>
-        <p className="text-slate-500">Create a new rental property</p>
+        <p className="text-muted">Create a new rental property</p>
       </div>
 
       <Card>

@@ -1,10 +1,11 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "./db";
 import { createSessionToken, parseSessionToken } from "./session-token";
 
 const SESSION_COOKIE = "landlord_session";
 
-export async function getSessionUserId(): Promise<string | null> {
+export const getSessionUserId = cache(async (): Promise<string | null> => {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   const userId = await parseSessionToken(token);
@@ -16,10 +17,12 @@ export async function getSessionUserId(): Promise<string | null> {
   });
 
   return user?.id ?? null;
-}
+});
 
-export async function requireUser() {
-  const userId = await getSessionUserId();
+export const requireUser = cache(async () => {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const userId = await parseSessionToken(token);
   if (!userId) {
     throw new Error("Unauthorized");
   }
@@ -31,7 +34,7 @@ export async function requireUser() {
 
   if (!user) throw new Error("Unauthorized");
   return user;
-}
+});
 
 export async function setSession(userId: string) {
   const cookieStore = await cookies();

@@ -113,7 +113,7 @@ export default async function UnitDetailPage({
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatMoney(unit.rentAmountCents)}</p>
-            <p className="text-sm text-slate-500">Due on day {unit.rentDueDay}</p>
+            <p className="text-sm text-muted">Due on day {unit.rentDueDay}</p>
           </CardContent>
         </Card>
         <Card>
@@ -126,7 +126,7 @@ export default async function UnitDetailPage({
                 <p className="font-medium">
                   {tenant.firstName} {tenant.lastName}
                 </p>
-                <p className="text-sm text-slate-500">{tenant.email || "No email"}</p>
+                <p className="text-sm text-muted">{tenant.email || "No email"}</p>
               </>
             ) : (
               <Badge variant="warning">No active tenant</Badge>
@@ -146,13 +146,13 @@ export default async function UnitDetailPage({
                   </Button>
                 </Link>
                 {activeLease.leaseEndDate && (
-                  <p className="mt-2 text-sm text-slate-500">
+                  <p className="mt-2 text-sm text-muted">
                     Ends {activeLease.leaseEndDate.toLocaleDateString("en-CA")}
                   </p>
                 )}
               </>
             ) : (
-              <p className="text-sm text-slate-500">No lease uploaded</p>
+              <p className="text-sm text-muted">No lease uploaded</p>
             )}
           </CardContent>
         </Card>
@@ -359,7 +359,7 @@ export default async function UnitDetailPage({
             <CardTitle className="text-base">Previous tenants</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2 text-sm text-slate-600">
+            <ul className="space-y-2 text-sm text-muted-foreground">
               {pastTenants.map((t) => (
                 <li key={t.id}>
                   {t.firstName} {t.lastName}
@@ -390,7 +390,7 @@ export default async function UnitDetailPage({
             <Button type="submit">Upload Lease</Button>
           </form>
           {!tenant && (
-            <p className="mt-2 text-xs text-slate-500">Add a tenant first to attach the lease record.</p>
+            <p className="mt-2 text-xs text-muted">Add a tenant first to attach the lease record.</p>
           )}
         </CardContent>
       </Card>

@@ -14,6 +14,7 @@ import {
   Alert,
   Badge,
   Button,
+  ButtonLink,
   Card,
   CardContent,
   CardDescription,
@@ -104,7 +105,7 @@ export default async function NoticesPage({
       <PageBackNav />
       <div>
         <h1 className="text-2xl font-bold">LTB Notices & Tenant Communications</h1>
-        <p className="text-slate-500">
+        <p className="text-muted">
           Ontario Landlord and Tenant Board N-series forms, notice delivery, and announcements
         </p>
       </div>
@@ -153,14 +154,18 @@ export default async function NoticesPage({
                   <Td className="font-medium">{form.code}</Td>
                   <Td>
                     <p className="font-medium">{form.name}</p>
-                    <p className="text-sm text-slate-500">{form.description}</p>
+                    <p className="text-sm text-muted">{form.description}</p>
                   </Td>
                   <Td>
-                    <Link href={form.downloadUrl} target="_blank">
-                      <Button variant="outline" size="sm">
-                        Download PDF
-                      </Button>
-                    </Link>
+                    <ButtonLink
+                      href={form.downloadUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      variant="outline"
+                      size="sm"
+                    >
+                      Download PDF
+                    </ButtonLink>
                   </Td>
                 </Tr>
               ))}
@@ -251,7 +256,7 @@ export default async function NoticesPage({
           </CardHeader>
           <CardContent className="space-y-4">
             {uploadedNotices.length === 0 ? (
-              <p className="text-sm text-slate-500">Upload a notice first.</p>
+              <p className="text-sm text-muted">Upload a notice first.</p>
             ) : (
               <>
                 <form action={sendLtbNoticeEmailAction} className="space-y-4">
@@ -364,7 +369,7 @@ export default async function NoticesPage({
         </CardHeader>
         <CardContent>
           {uploadedNotices.length === 0 ? (
-            <p className="text-sm text-slate-500">No uploaded LTB notices yet.</p>
+            <p className="text-sm text-muted">No uploaded LTB notices yet.</p>
           ) : (
             <Table>
               <thead>
@@ -396,11 +401,15 @@ export default async function NoticesPage({
                       )}
                     </Td>
                     <Td>
-                      <Link href={`/api/documents/${doc.id}`} target="_blank">
-                        <Button variant="outline" size="sm">
-                          Download
-                        </Button>
-                      </Link>
+                      <ButtonLink
+                        href={`/api/documents/${doc.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        variant="outline"
+                        size="sm"
+                      >
+                        Download
+                      </ButtonLink>
                     </Td>
                   </Tr>
                 ))}

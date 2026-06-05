@@ -1,4 +1,5 @@
-import { Button, Input, Label } from "@/components/ui";
+import { Input, Label } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
 
 type ConfirmDeleteFormProps = {
   action: (formData: FormData) => void | Promise<void>;
@@ -15,10 +16,10 @@ export function ConfirmDeleteForm({
 }: ConfirmDeleteFormProps) {
   return (
     <form action={action} className="space-y-3">
-      <p className="text-sm text-slate-600">{description}</p>
+      <p className="text-sm text-muted-foreground">{description}</p>
       <div className="space-y-2">
         <Label htmlFor="confirm">
-          Type <span className="font-semibold text-slate-900">{entityName}</span> to confirm
+          Type <span className="font-semibold text-foreground">{entityName}</span> to confirm
         </Label>
         <Input
           id="confirm"
@@ -28,9 +29,9 @@ export function ConfirmDeleteForm({
           required
         />
       </div>
-      <Button type="submit" variant="destructive">
+      <SubmitButton variant="destructive" pendingLabel="Deleting…">
         {buttonLabel}
-      </Button>
+      </SubmitButton>
     </form>
   );
 }

@@ -1,15 +1,11 @@
-import {
-  runAutoBillingAction,
-  syncAllGreenButtonAction,
-  updateSettingsAction,
-} from "@/app/actions/app";
+import { runAutoBillingAction, updateSettingsAction } from "@/app/actions/app";
 import { requireUser } from "@/lib/auth";
-import { isGreenButtonConfigured } from "@/lib/green-button/providers";
 import { isStripeConfigured } from "@/lib/stripe";
 import { PageBackNav } from "@/components/layout/page-back-nav";
+import { FlashAlert } from "@/components/flash-alert";
+import { SubmitButton } from "@/components/submit-button";
 import {
   Alert,
-  Button,
   Card,
   CardContent,
   CardDescription,
@@ -29,55 +25,37 @@ export default async function SettingsPage({
     generated?: string;
     sent?: string;
     skipped?: string;
-    greenButton?: string;
-    reason?: string;
-    greenButtonSync?: string;
-    imported?: string;
-    connections?: string;
-    error?: string;
   }>;
 }) {
   const user = await requireUser();
   const params = await searchParams;
   const settings = user.settings;
   const stripeConfigured = isStripeConfigured();
-  const greenButtonConfigured = isGreenButtonConfigured();
   const runAutoBilling = runAutoBillingAction;
-  const syncAllGreenButton = syncAllGreenButtonAction;
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <PageBackNav />
       <div>
         <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-slate-500">Billing automation, payments, and reminders</p>
+        <p className="text-muted">Billing automation, payments, and reminders</p>
       </div>
 
-      {params.saved && <Alert>Saved settings.</Alert>}
+      {params.saved && (
+        <FlashAlert clearParams={["saved"]}>Saved settings.</FlashAlert>
+      )}
       {params.autoBilling && (
-        <Alert>
+        <FlashAlert clearParams={["autoBilling", "generated", "sent", "skipped"]}>
           Auto-billing run: {params.generated ?? 0} statement(s) generated, {params.sent ?? 0}{" "}
           sent, {params.skipped ?? 0} skipped (missing tenant email).
-        </Alert>
-      )}
-      {params.greenButton === "error" && (
-        <Alert variant="error">
-          Green Button authorization failed{params.reason ? `: ${params.reason}` : "."}
-        </Alert>
-      )}
-      {params.greenButtonSync && (
-        <Alert>
-          Green Button sync: {params.imported ?? 0} bill(s) imported across{" "}
-          {params.connections ?? 0} connection(s), {params.skipped ?? 0} skipped.
-          {params.error ? ` Error: ${params.error}` : ""}
-        </Alert>
+        </FlashAlert>
       )}
 
       <Card>
         <CardHeader>
           <CardTitle>Account</CardTitle>
         </CardHeader>
-        <CardContent className="text-sm text-slate-600">
+        <CardContent className="text-sm text-muted-foreground">
           <p>Email: {user.email}</p>
           <p>Name: {user.name || "—"}</p>
         </CardContent>
@@ -132,7 +110,7 @@ export default async function SettingsPage({
                 type="checkbox"
                 name="autoSendStatements"
                 defaultChecked={settings?.autoSendStatements}
-                className="h-4 w-4 rounded border-slate-300"
+                className="h-4 w-4 rounded border-border"
               />
               Enable automatic monthly statements
             </label>
@@ -147,10 +125,10 @@ export default async function SettingsPage({
                 defaultValue={settings?.autoSendDayOfMonth ?? 1}
               />
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted">
               Schedule a daily cron POST to{" "}
-              <code className="rounded bg-slate-100 px-1">/api/cron/auto-billing</code> with header{" "}
-              <code className="rounded bg-slate-100 px-1">Authorization: Bearer CRON_SECRET</code>
+              <code className="rounded bg-surface-muted px-1">/api/cron/auto-billing</code> with header{" "}
+              <code className="rounded bg-surface-muted px-1">Authorization: Bearer CRON_SECRET</code>
             </p>
           </CardContent>
         </Card>
@@ -192,7 +170,7 @@ export default async function SettingsPage({
                 name="stripePaymentsEnabled"
                 defaultChecked={settings?.stripePaymentsEnabled}
                 disabled={!stripeConfigured}
-                className="h-4 w-4 rounded border-slate-300"
+                className="h-4 w-4 rounded border-border"
               />
               Enable Stripe card payments for tenants
             </label>
@@ -203,65 +181,15 @@ export default async function SettingsPage({
               </Alert>
             )}
             {stripeConfigured && (
-              <p className="text-xs text-slate-500">
-                Webhook endpoint: <code className="rounded bg-slate-100 px-1">/api/stripe/webhook</code>
+              <p className="text-xs text-muted">
+                Webhook endpoint: <code className="rounded bg-surface-muted px-1">/api/stripe/webhook</code>
               </p>
             )}
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Utility Automation (Green Button)</CardTitle>
-            <CardDescription>
-              Automatically import utility bills from connected Enbridge, Alectra, or sandbox
-              accounts. Connect accounts on each property&apos;s Green Button page.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                name="utilityAutomationEnabled"
-                defaultChecked={settings?.utilityAutomationEnabled}
-                className="h-4 w-4 rounded border-slate-300"
-              />
-              Enable scheduled Green Button bill sync
-            </label>
-            {!greenButtonConfigured && (
-              <Alert variant="warning">
-                Configure Green Button credentials in your environment. The sandbox provider works
-                with default values for testing.
-              </Alert>
-            )}
-            <p className="text-xs text-slate-500">
-              Schedule a daily cron POST to{" "}
-              <code className="rounded bg-slate-100 px-1">/api/cron/green-button-sync</code> with
-              header <code className="rounded bg-slate-100 px-1">Authorization: Bearer CRON_SECRET</code>
-            </p>
-          </CardContent>
-        </Card>
-
-        <div className="flex flex-wrap gap-3">
-          <Button type="submit">Save Settings</Button>
-        </div>
+        <SubmitButton pendingLabel="Saving…">Save Settings</SubmitButton>
       </form>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Green Button Sync</CardTitle>
-          <CardDescription>
-            Import the latest bills from all connected utility accounts now.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={syncAllGreenButton}>
-            <Button type="submit" variant="outline">
-              Sync Green Button bills now
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -272,9 +200,9 @@ export default async function SettingsPage({
         </CardHeader>
         <CardContent>
           <form action={runAutoBilling}>
-            <Button type="submit" variant="outline">
+            <SubmitButton variant="outline" pendingLabel="Running…">
               Run auto-billing now
-            </Button>
+            </SubmitButton>
           </form>
         </CardContent>
       </Card>

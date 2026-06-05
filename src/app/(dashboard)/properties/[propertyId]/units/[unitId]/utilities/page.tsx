@@ -47,7 +47,7 @@ export default async function UtilityRulesPage({
       />
       <div>
         <h1 className="text-2xl font-bold">Utility Rules</h1>
-        <p className="text-slate-500">Define how utility costs are split for this unit</p>
+        <p className="text-muted">Define how utility costs are split for this unit</p>
       </div>
 
       {saved && <Alert>Saved utility rules.</Alert>}

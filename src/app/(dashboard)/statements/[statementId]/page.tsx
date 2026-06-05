@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -9,17 +10,23 @@ import { createPayToken, getStatementPayUrl, previewStatementEmail } from "@/lib
 import { isStripeConfigured } from "@/lib/stripe";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
 import {
+  deleteStatementAction,
   recordStatementPaymentAction,
+  refreshStatementAction,
   sendReceiptEmailAction,
   sendStatementAction,
 } from "@/app/actions/app";
+import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
 import { EmailHtmlPreview } from "@/components/email-html-preview";
 import { PageBackNav } from "@/components/layout/page-back-nav";
+import { FlashAlert } from "@/components/flash-alert";
+import { SubmitButton } from "@/components/submit-button";
 import {
   Alert,
   Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Input,
@@ -36,7 +43,13 @@ export default async function StatementDetailPage({
   searchParams,
 }: {
   params: Promise<{ statementId: string }>;
-  searchParams: Promise<{ paid?: string; partial?: string; error?: string }>;
+  searchParams: Promise<{
+    paid?: string;
+    partial?: string;
+    error?: string;
+    created?: string;
+    refreshed?: string;
+  }>;
 }) {
   const { statementId } = await params;
   const query = await searchParams;
@@ -75,13 +88,16 @@ export default async function StatementDetailPage({
   const stripeReady = settings?.stripePaymentsEnabled && isStripeConfigured();
   const canRecordPayment =
     outstanding > 0 &&
-    statement.status !== "draft" &&
     statement.status !== "cancelled" &&
     statement.status !== "paid";
 
   const monthLabel = `${MONTH_NAMES[statement.statementMonth - 1]} ${statement.statementYear}`;
   const sendStatement = sendStatementAction.bind(null, statementId);
   const recordPayment = recordStatementPaymentAction.bind(null, statementId);
+  const refreshStatement = refreshStatementAction.bind(null, statementId);
+  const deleteStatement = deleteStatementAction.bind(null, statementId);
+  const canRefresh =
+    statement.status !== "paid" && statement.status !== "cancelled";
   const emailPreview =
     statement.status === "draft" ? await previewStatementEmail(statementId, user.id) : null;
 
@@ -95,9 +111,11 @@ export default async function StatementDetailPage({
       <PageBackNav parent={{ href: "/statements", label: "Statements" }} />
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{statement.statementNumber}</h1>
-          <p className="text-slate-500">
-            {statement.unit.property.name} · {statement.unit.name} · {monthLabel}
+          <h1 className="text-2xl font-bold">
+            {statement.unit.name} · {monthLabel}
+          </h1>
+          <p className="text-muted">
+            {statement.unit.property.name} · {statement.statementNumber}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -107,19 +125,67 @@ export default async function StatementDetailPage({
             paidAmountCents={statement.paidAmountCents}
             stripeCheckoutSessionId={statement.stripeCheckoutSessionId}
           />
-          <span className="text-xs capitalize text-slate-500">{statement.status}</span>
+          <span className="text-xs capitalize text-muted">{statement.status}</span>
         </div>
       </div>
 
+      {canRefresh && (
+        <Card className="border-primary/25 bg-primary-muted/30">
+          <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-muted text-primary">
+                <RefreshCw className="h-5 w-5" aria-hidden />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Refresh statement</p>
+                <p className="text-sm text-muted-foreground">
+                  Rebuild from the latest rent, utility bills, unit rules, and prior-month balance.
+                  Recorded payments are kept.
+                </p>
+              </div>
+            </div>
+            <form action={refreshStatement} className="shrink-0">
+              <SubmitButton className="w-full sm:w-auto" pendingLabel="Updating…">
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
+                Update from latest data
+              </SubmitButton>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {query.created === "past" && (
+        <FlashAlert clearParams={["created"]}>
+          Past statement created with the payment status you selected.
+        </FlashAlert>
+      )}
       {query.paid && (
-        <Alert>
+        <FlashAlert clearParams={["paid", "partial"]}>
           {query.partial === "1"
             ? "Partial payment recorded. Receipt generated and emailed if tenant has an address on file."
             : "Payment recorded in full. Receipt generated."}
-        </Alert>
+        </FlashAlert>
       )}
       {query.error === "amount_required" && (
-        <Alert variant="error">Enter a partial payment amount.</Alert>
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Enter a partial payment amount.
+        </FlashAlert>
+      )}
+      {query.error === "delete_confirm" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Confirmation did not match. Type the statement number exactly to delete.
+        </FlashAlert>
+      )}
+      {query.refreshed && (
+        <FlashAlert clearParams={["refreshed"]}>
+          Statement updated from the latest rent, utility bills, and unit rules. Any saved PDF was
+          cleared — send again or download a new PDF if needed.
+        </FlashAlert>
+      )}
+      {query.error && query.error !== "delete_confirm" && query.error !== "amount_required" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          {decodeURIComponent(query.error)}
+        </FlashAlert>
       )}
       {missingEmail && (
         <Alert variant="warning">Tenant email is missing — required before sending.</Alert>
@@ -148,7 +214,7 @@ export default async function StatementDetailPage({
                 {statement.lineItems.map((item) => (
                   <Tr key={item.id}>
                     <Td>{item.description}</Td>
-                    <Td className="text-sm text-slate-500">{item.calculationNote || "—"}</Td>
+                    <Td className="text-sm text-muted">{item.calculationNote || "—"}</Td>
                     <Td className="text-right">{formatMoney(item.amountCents)}</Td>
                   </Tr>
                 ))}
@@ -192,10 +258,10 @@ export default async function StatementDetailPage({
               <p className="font-medium">
                 {statement.tenant.firstName} {statement.tenant.lastName}
               </p>
-              <p className="text-slate-500">{statement.tenant.email || "No email"}</p>
-              <p className="mt-2 text-slate-500">Due: {statement.dueDate.toLocaleDateString()}</p>
+              <p className="text-muted">{statement.tenant.email || "No email"}</p>
+              <p className="mt-2 text-muted">Due: {statement.dueDate.toLocaleDateString()}</p>
               {paymentInfo.key !== "paid" && paymentInfo.key !== "draft" && (
-                <p className="mt-2 font-medium text-slate-900">
+                <p className="mt-2 font-medium text-foreground">
                   Outstanding: {formatMoney(outstanding)}
                 </p>
               )}
@@ -208,13 +274,13 @@ export default async function StatementDetailPage({
                 <CardTitle className="text-base">Tenant payment link</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                <p className="break-all text-xs text-slate-600">{payUrl}</p>
+                <p className="break-all text-xs text-muted-foreground">{payUrl}</p>
                 {stripeReady ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted">
                     Share this link so tenants can pay the remaining balance by card via Stripe.
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted">
                     Enable Stripe in settings to accept card payments on this link.
                   </p>
                 )}
@@ -234,11 +300,11 @@ export default async function StatementDetailPage({
               </CardHeader>
               <CardContent className="space-y-4">
                 <form action={sendStatement}>
-                  <Button type="submit" className="w-full" disabled={!!missingEmail}>
+                  <SubmitButton className="w-full" disabled={!!missingEmail} pendingLabel="Sending…">
                     Send by Email
-                  </Button>
+                  </SubmitButton>
                 </form>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-muted">
                   Sends a professional HTML email with the statement PDF attached. Enable auto-send
                   on the 1st of each month in Settings.
                 </p>
@@ -260,9 +326,17 @@ export default async function StatementDetailPage({
           {canRecordPayment && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Record Payment</CardTitle>
+                <CardTitle className="text-base">
+                  {statement.status === "draft" ? "Mark as paid" : "Record payment"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
+                {statement.status === "draft" && (
+                  <p className="mb-3 text-xs text-muted">
+                    Use this for open or past statements. Recording payment marks the statement as
+                    sent and updates paid / partial status.
+                  </p>
+                )}
                 <form action={recordPayment} className="space-y-3">
                   <div className="space-y-1">
                     <Label htmlFor="paymentType">Payment type</Label>
@@ -304,9 +378,9 @@ export default async function StatementDetailPage({
                     <Label htmlFor="referenceNumber">Reference</Label>
                     <Input id="referenceNumber" name="referenceNumber" placeholder="Optional" />
                   </div>
-                  <Button type="submit" className="w-full">
+                  <SubmitButton className="w-full" pendingLabel="Recording…">
                     Record Payment & Generate Receipt
-                  </Button>
+                  </SubmitButton>
                 </form>
               </CardContent>
             </Card>
@@ -325,7 +399,7 @@ export default async function StatementDetailPage({
                   return (
                     <div key={payment.id} className="rounded-lg border border-border p-3 text-sm">
                       <p className="font-medium">{formatMoney(payment.amountCents)}</p>
-                      <p className="text-slate-500">
+                      <p className="text-muted">
                         {payment.paymentDate.toLocaleDateString()} ·{" "}
                         {payment.paymentMethod.replace("_", " ")}
                       </p>
@@ -349,7 +423,7 @@ export default async function StatementDetailPage({
                               </form>
                             )}
                           {payment.receipt.emailSentAt && (
-                            <p className="text-xs text-slate-500">
+                            <p className="text-xs text-muted">
                               Receipt emailed {payment.receipt.emailSentAt.toLocaleDateString()}
                             </p>
                           )}
@@ -361,6 +435,25 @@ export default async function StatementDetailPage({
               </CardContent>
             </Card>
           )}
+
+          <Card className="border-red-200">
+            <CardHeader>
+              <CardTitle className="text-base text-red-900">Delete statement</CardTitle>
+              <CardDescription>
+                {statement.status === "draft"
+                  ? "Remove this draft so you can regenerate it for the same month."
+                  : "Permanently removes this statement and any recorded payments. Statement and receipt PDFs stay in your document library."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ConfirmDeleteForm
+                action={deleteStatement}
+                entityName={statement.statementNumber}
+                buttonLabel="Delete statement"
+                description="This cannot be undone. You can generate a new statement for this unit and month afterward."
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

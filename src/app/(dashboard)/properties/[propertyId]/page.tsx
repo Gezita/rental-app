@@ -5,9 +5,9 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
+import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -58,28 +58,28 @@ export default async function PropertyDetailPage({
       <PageBackNav parent={{ href: "/properties", label: "Properties" }} />
 
       {query.deleted === "unit" && (
-        <Alert>Unit deleted.</Alert>
+        <FlashAlert clearParams={["deleted"]}>Unit deleted.</FlashAlert>
       )}
       {query.error === "delete_confirm" && (
-        <Alert variant="error">
+        <FlashAlert variant="error" clearParams={["error"]}>
           Delete cancelled — type the property name exactly to confirm.
-        </Alert>
+        </FlashAlert>
       )}
 
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold">{property.name}</h1>
-          <p className="text-slate-500">
+          <p className="text-muted">
             {property.addressLine1}, {property.city}
             {property.province ? `, ${property.province}` : ""}
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href={`/properties/${propertyId}/utility-connect`}>
-            <Button variant="outline">Green Button</Button>
+          <Link href={`/properties/${propertyId}/utility-bills/import`}>
+            <Button variant="outline">Import amounts (.xlsx)</Button>
           </Link>
           <Link href={`/properties/${propertyId}/utility-bills/new`}>
-            <Button variant="outline">Upload Bill</Button>
+            <Button variant="outline">Upload bill PDF</Button>
           </Link>
           <Link href={`/properties/${propertyId}/units/new`}>
             <Button>Add Unit</Button>
@@ -123,7 +123,7 @@ export default async function PropertyDetailPage({
         </CardHeader>
         <CardContent>
           {property.units.length === 0 ? (
-            <p className="text-sm text-slate-500">No units yet.</p>
+            <p className="text-sm text-muted">No units yet.</p>
           ) : (
             <Table>
               <thead>
@@ -165,8 +165,8 @@ export default async function PropertyDetailPage({
       </Card>
 
       <div className="flex gap-4">
-        <Link href={`/properties/${propertyId}/utility-connect`}>
-          <Button variant="outline">Green Button</Button>
+        <Link href={`/properties/${propertyId}/utility-bills/import`}>
+          <Button variant="outline">Import amounts (.xlsx)</Button>
         </Link>
         <Link href={`/properties/${propertyId}/utility-bills`}>
           <Button variant="outline">Utility Bills</Button>

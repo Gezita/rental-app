@@ -4,7 +4,33 @@ import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import type { MaintenanceStatus } from "@prisma/client";
+import { cn } from "@/lib/utils";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Label, Select, Table, Th, Td, Tr } from "@/components/ui";
+
+function FilterLink({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+        active
+          ? "border-primary/30 bg-primary-muted text-primary-hover"
+          : "border-border bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground"
+      )}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export default async function MaintenancePage({
   searchParams,
@@ -21,7 +47,7 @@ export default async function MaintenancePage({
 
   const where: {
     property: { userId: string; id?: string };
-    status?: MaintenanceStatus;
+    status?: MaintenanceStatus | { in: MaintenanceStatus[] };
   } = {
     property: { userId: user.id },
   };
@@ -29,9 +55,13 @@ export default async function MaintenancePage({
   if (params.propertyId) {
     where.property.id = params.propertyId;
   }
-  if (params.status && params.status !== "all") {
+  if (params.status === "open") {
+    where.status = { in: ["planned", "in_progress"] };
+  } else if (params.status && params.status !== "all") {
     where.status = params.status as MaintenanceStatus;
   }
+
+  const activeStatus = params.status || "all";
 
   const records = await prisma.maintenanceRecord.findMany({
     where,
@@ -52,14 +82,34 @@ export default async function MaintenancePage({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Maintenance</h1>
-          <p className="text-slate-500">Track repairs, vendors, and invoices</p>
+          <p className="text-muted">Track repairs, vendors, and invoices</p>
         </div>
-        <Link href="/maintenance/new">
-          <Button>Add Maintenance</Button>
-        </Link>
-        <Link href="/maintenance/receipts">
-          <Button variant="outline">Receipt Repository</Button>
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/maintenance/new">
+            <Button>Add Maintenance</Button>
+          </Link>
+          <Link href="/maintenance/receipts">
+            <Button variant="outline">Receipt Repository</Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <FilterLink href="/maintenance?status=open" active={activeStatus === "open"}>
+          Open
+        </FilterLink>
+        <FilterLink href="/maintenance" active={activeStatus === "all"}>
+          All
+        </FilterLink>
+        <FilterLink href="/maintenance?status=planned" active={activeStatus === "planned"}>
+          Planned
+        </FilterLink>
+        <FilterLink href="/maintenance?status=in_progress" active={activeStatus === "in_progress"}>
+          In progress
+        </FilterLink>
+        <FilterLink href="/maintenance?status=completed" active={activeStatus === "completed"}>
+          Completed
+        </FilterLink>
       </div>
 
       <Card>
@@ -70,8 +120,9 @@ export default async function MaintenancePage({
           <form method="get" className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select id="status" name="status" defaultValue={params.status || "all"}>
+              <Select id="status" name="status" defaultValue={activeStatus}>
                 <option value="all">All statuses</option>
+                <option value="open">Open (planned + in progress)</option>
                 <option value="planned">Planned</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
@@ -104,12 +155,18 @@ export default async function MaintenancePage({
       <Card>
         <CardHeader>
           <CardTitle>
-            {records.length} Record{records.length === 1 ? "" : "s"}
+            {activeStatus === "open" ? "Open maintenance" : "Maintenance records"} ·{" "}
+            {records.length} record{records.length === 1 ? "" : "s"}
           </CardTitle>
         </CardHeader>
         <CardContent>
           {records.length === 0 ? (
-            <p className="text-sm text-slate-500">No maintenance records match your filters.</p>
+            <div className="space-y-2 text-sm text-muted">
+              <p>No maintenance records match your filters.</p>
+              <Link href="/maintenance/new" className="font-medium text-primary-hover underline">
+                Add a maintenance record
+              </Link>
+            </div>
           ) : (
             <Table>
               <thead>

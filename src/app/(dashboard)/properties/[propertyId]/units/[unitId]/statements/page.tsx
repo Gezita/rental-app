@@ -42,13 +42,13 @@ export default async function UnitStatementsPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Statements</CardTitle>
-          <Link href={`/statements/generate?propertyId=${propertyId}`}>
-            <Button size="sm">Generate</Button>
+          <Link href={`/statements/generate?propertyId=${propertyId}&unitId=${unitId}`}>
+            <Button size="sm">Generate for {unit.name}</Button>
           </Link>
         </CardHeader>
         <CardContent>
           {unit.statements.length === 0 ? (
-            <p className="text-sm text-slate-500">No statements for this unit yet.</p>
+            <p className="text-sm text-muted">No statements for this unit yet.</p>
           ) : (
             <Table>
               <thead>

@@ -1,8 +1,20 @@
 # Rentals Dashboard
 
-Landlord billing and document management MVP.
+Landlord billing and document management for small portfolios (1–20 units). Built for Ontario landlords who split shared utilities, generate monthly tenant statements, and keep leases, bills, and maintenance records in one place.
 
 ## Quick Start
+
+### macOS (double-click)
+
+1. **Install:** double-click `install.command` in Finder  
+   (If macOS blocks it: right-click → **Open** → **Open** once.)
+2. **Run:** double-click **Rentals Dashboard** on your Desktop (or `start.command`) — opens [http://localhost:3000](http://localhost:3000)
+
+The installer checks Node.js (installs via Homebrew if needed), creates `.env`, installs dependencies, seeds the database, builds the app, and adds a Desktop shortcut.
+
+To recreate the shortcut later, double-click `create-shortcut.command`.
+
+### Terminal
 
 ```bash
 npm install
@@ -16,62 +28,161 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Features
 
-- Properties, units, and tenants
-- Utility split rules per unit
-- Utility bill upload with automatic split calculation
-- Monthly statement generation (draft → send → paid → receipt)
-- **Partial payments** on statements with receipt generation and balance tracking
-- **Maintenance receipt repository** for invoices and vendor receipts
+### Core billing
+
+- Properties, units, and tenants (with automatic lease record on tenant creation)
+- Utility split rules per unit (gas, water, electricity, internet, other)
+- Utility bill upload with automatic split calculation across units
+- **Bill database (.xlsx)** — upload monthly gas, water, and electricity amounts; statements auto-fill matching months
+- Monthly statement generation (draft → send → partial/paid → receipt)
+- **Partial payments** with balance tracking and receipt generation
+- Prior-month balance roll-forward for sent, overdue, and partial statements (not drafts)
+
+### Communications & documents
+
 - **LTB N-series notices** — download official Ontario forms, upload, and email tenants
 - **Tenant announcements** with professional HTML email layout
-- **Auto-send statements** on the 1st of each month (configurable in Settings)
-- **Lease end reminders** on dashboard (set lease end date when uploading a lease)
-- **Automatic invoice sender** (monthly generate + email; cron or manual run from Settings)
+- Document storage (local `uploads/` folder in dev)
+- Maintenance tracking with invoice uploads and receipt repository
+
+### Automation & payments
+
+- **Auto-send statements** on a configurable day of each month (Settings)
+- **Lease end reminders** on dashboard
 - **Stripe tenant payments** via `/pay/[token]` link in statement emails
-- **Green Button utility sync** — connect Enbridge, Alectra, or sandbox accounts to import bills automatically
-- Document storage (local `uploads/` folder for dev)
-- Maintenance tracking with invoice uploads
-- Dashboard summary
+- Cron endpoint for scheduled auto-billing
+
+### UX
+
+- Dashboard onboarding checklist, financial overview, and per-property missing-bill alerts
+- PWA-ready (manifest, service worker, iOS home screen support)
+- Loading skeletons on dashboard navigation
 
 ## Tech Stack
 
-- Next.js 15 (App Router) + TypeScript
-- Prisma + SQLite (local dev)
-- Tailwind CSS
-- pdf-lib for PDF generation
-- Emails logged to console in dev mode
-- PWA-ready (manifest, service worker, iOS home screen support)
+| Layer | Choice |
+|-------|--------|
+| Framework | Next.js 15 (App Router) + React 19 + TypeScript |
+| Database | Prisma + SQLite (local dev; use PostgreSQL for multi-tenant production) |
+| Styling | Tailwind CSS 4 |
+| Auth | bcrypt + HMAC-signed session cookies |
+| PDF | pdf-lib |
+| Spreadsheets | xlsx (server-side only) |
+| Payments | Stripe Checkout (optional) |
+| Email | Console logging in dev; wire to Resend/Postmark for production |
 
-## Project structure
+## Environment Variables
+
+Copy `.env.example` to `.env`:
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DATABASE_URL` | Yes | SQLite path, e.g. `file:./dev.db` |
+| `SESSION_SECRET` | **Production** | HMAC secret for session cookies. App throws at startup if missing in production. |
+| `NEXT_PUBLIC_APP_URL` | Stripe / pay links | Public app URL, e.g. `http://localhost:3000` |
+| `STRIPE_SECRET_KEY` | Optional | Stripe API key |
+| `STRIPE_WEBHOOK_SECRET` | Optional | Stripe webhook signing secret |
+| `CRON_SECRET` | Optional | Bearer token for `/api/cron/auto-billing` |
+
+## NPM Scripts
+
+| Script | Description |
+|--------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run start` | Run production server |
+| `npm run lint` | ESLint |
+| `npm run db:generate` | Regenerate Prisma client |
+| `npm run db:push` | Push schema to database |
+| `npm run db:seed` | Seed demo data |
+| `npm run db:setup` | `db:push` + `db:seed` |
+
+### Utility scripts
+
+```bash
+# Test spreadsheet bill parser against sample files
+npx tsx scripts/test-parse-bills.ts
+```
+
+## Project Structure
 
 ```
-src/app/actions/     Domain server actions (properties, statements, settings, …)
-src/lib/             Business logic, auth, ownership helpers
-src/components/      UI and layout
-src/middleware.ts    Route protection for authenticated areas
-public/sw.js         Service worker for offline shell
+src/
+├── app/
+│   ├── (auth)/              sign-in, sign-up
+│   ├── (dashboard)/         Protected pages (dashboard, properties, statements, …)
+│   ├── actions/             Server actions (properties, statements, auth, …)
+│   ├── api/                 Stripe webhooks, cron, document download
+│   ├── pay/[payToken]/      Tenant payment page
+│   └── middleware.ts        Route protection
+├── components/
+│   ├── ui/                  Shared primitives (Button, Card, Alert, …)
+│   ├── layout/              Shell, nav, page back nav
+│   └── dashboard/           Stat cards, onboarding checklist
+└── lib/
+    ├── auth.ts              Session + requireUser (React.cache)
+    ├── ownership.ts         requireProperty / requireUnit / requireTenant
+    ├── statements.ts        Generation, splits, roll-forward, refresh
+    ├── parse-bills-xlsx.ts  Spreadsheet import (server-only)
+    ├── validation.ts        Shared input validation
+    ├── billing-constants.ts Month names, utility labels
+    ├── money.ts             formatMoney, parseMoneyToCents (cents everywhere)
+    └── …                    email, pdf, stripe, overdue, auto-billing
+
+prisma/schema.prisma         Data models
+public/samples/              Example .xlsx files for bill import
+uploads/                     Local file storage (dev)
+scripts/                     install.sh, create-shortcut.sh, test-parse-bills.ts
 ```
 
-Set `SESSION_SECRET` in `.env` for signed session cookies (required in production).
+## Architecture Patterns
+
+- **Server Components by default** — pages fetch data on the server; client components only where needed (forms, flash dismiss, submit pending state).
+- **Server actions** — all mutations go through `src/app/actions/`; re-exported from `actions/index.ts` and `actions/app.ts`.
+- **Authorization** — `requireUser()` + `requireProperty/Unit/Tenant/Statement()` scope every query by `userId`.
+- **Money** — always stored as integer cents; use `formatMoney()` for display.
+- **Heavy libraries** — `xlsx` is dynamically imported on the server only (never bundled to the client).
 
 ## Workflow
 
 1. Sign up or use demo account
 2. Create a property and add units
-3. Add tenants and set utility rules
-4. Upload utility bills
+3. Add tenants (creates an active lease automatically) and set utility rules
+4. Import or upload utility bills
 5. Generate monthly statements
-6. Send statements (check terminal for email output)
-7. Tenants pay via Stripe link (optional) or landlord marks as paid
+6. Send statements (check terminal for email output in dev)
+7. Tenants pay via Stripe link (optional) or landlord records payment
 8. Receipts generated automatically
 
-## Stripe setup
+### Bill database & statements
 
-1. Copy `.env.example` to `.env` and set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_APP_URL`
-2. In [Stripe Dashboard](https://dashboard.stripe.com), add webhook endpoint: `{APP_URL}/api/stripe/webhook` — event: `checkout.session.completed`
+On each property, open **Utility bills → Import bill amounts**:
+
+| Utility | Spreadsheet format |
+|---------|-------------------|
+| Gas / water | **Month**, **Year**, **Amount** columns |
+| Electricity | **Bill Date** + **Bill Amount** (table or label/value rows) |
+| Any | **Due Date** + **Amount** billing tables |
+
+- Choose **gas**, **water**, or **electricity** per upload.
+- Each upload **replaces** all spreadsheet-sourced bills for that utility on the property (manual bills for other types are unchanged).
+- Preview runs on the server; you must confirm before saving.
+- Max file size: **10 MB**.
+- Sample file: `public/samples/electricity-bills.example.xlsx`
+
+When you **Generate statements** for March, only bills with bill month **March** are included.
+
+**Past statements:** **Statements → Generate** → create a historical statement with payment status (unpaid, paid, partial).
+
+On any open statement, use **Record payment** for full or partial payments.
+
+## Stripe Setup
+
+1. Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `NEXT_PUBLIC_APP_URL` in `.env`
+2. In [Stripe Dashboard](https://dashboard.stripe.com), add webhook: `{APP_URL}/api/stripe/webhook` — event: `checkout.session.completed`
 3. Enable **Stripe card payments** in Settings
 
-## Automatic statements (cron)
+## Automatic Statements (Cron)
 
 Set `CRON_SECRET` in `.env`, enable auto-send in Settings, then schedule:
 
@@ -80,54 +191,56 @@ curl -X POST http://localhost:3000/api/cron/auto-billing \
   -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
-Or use **Run auto-billing now** on the Settings page to test.
-
-## Green Button utility sync
-
-Import gas (Enbridge) and electricity (Alectra) bills via the Ontario **Green Button Connect My Data** standard.
-
-### Quick test (sandbox)
-
-1. Ensure `NEXT_PUBLIC_APP_URL` matches your dev server (default `http://localhost:3000`)
-2. Sandbox credentials are pre-filled in `.env.example` (`third_party` / `secret`)
-3. On a property page, open **Green Button** → **Connect Green Button Sandbox**
-4. Authorize in the sandbox portal, then use **Sync now** to import bills
-
-**Local dev tip:** OAuth requires registering `{APP_URL}/api/green-button/callback` with the data custodian. Use **Sandbox manual connect** on the Green Button page with a test token from the [API sandbox docs](http://greenbuttonalliance.github.io/OpenESPI-GreenButton-API-Documentation/API/) (token for alan, Subscription ID `5`).
-
-For production Enbridge/Alectra, you must register as a third-party provider with each utility and add credentials to `.env`:
-
-- Enbridge: [Share My Data](https://www.enbridgegas.com)
-- Alectra: [Green Button](https://alectrautilities.com/green-button)
-
-OAuth callback URL (register this with each utility):
-
-```
-{NEXT_PUBLIC_APP_URL}/api/green-button/callback
-```
-
-### Scheduled sync
-
-Enable **Utility automation** in Settings, connect accounts per property, then schedule:
-
-```bash
-curl -X POST http://localhost:3000/api/cron/green-button-sync \
-  -H "Authorization: Bearer YOUR_CRON_SECRET"
-```
-
-Or use **Sync Green Button bills now** on the Settings page.
+Or use **Run auto-billing now** on the Settings page.
 
 ## Install on iOS (Add to Home Screen)
 
-This app is configured as a Progressive Web App (PWA) for iPhone and iPad.
+1. Deploy over **HTTPS**
+2. Set `NEXT_PUBLIC_APP_URL` and a strong `SESSION_SECRET`
+3. Open in **Safari** → **Share** → **Add to Home Screen**
 
-1. Deploy the app over **HTTPS** (required for install and service worker)
-2. Set `NEXT_PUBLIC_APP_URL` to your production URL
-3. Set a strong `SESSION_SECRET` in production
-4. On iPhone/iPad, open the site in **Safari**
-5. Tap **Share** → **Add to Home Screen**
-6. Launch **Rentals** from your home screen — it opens full-screen like a native app
+Offline support caches static assets and shows `/offline` when disconnected.
 
-**Notes:**
-- Offline support caches static assets and shows an offline page when disconnected
-- For App Store distribution, wrap this PWA with [Capacitor](https://capacitorjs.com) in a future phase
+## Troubleshooting
+
+### `MODULE_NOT_FOUND` / webpack chunk errors
+
+Stale Next.js build cache. Clean and rebuild:
+
+```bash
+rm -rf .next && npm run build
+# or for dev:
+rm -rf .next && npm run dev
+```
+
+### Database out of sync
+
+```bash
+npm run db:push
+npm run db:seed   # optional, resets demo data
+```
+
+### Spreadsheet import fails
+
+Run the parser test script to verify sample files:
+
+```bash
+npx tsx scripts/test-parse-bills.ts
+```
+
+Check that amounts are in dollars (e.g. `125.50`, not cents). Excel numbers are always interpreted as dollars.
+
+## Production Checklist
+
+- [ ] Set strong `SESSION_SECRET` (app refuses default in production)
+- [ ] Switch `DATABASE_URL` to PostgreSQL for multi-user hosting
+- [ ] Configure real email provider (replace console logger in `src/lib/email.ts`)
+- [ ] Move file storage to S3/R2 (replace local `uploads/` in `src/lib/files.ts`)
+- [ ] Set up HTTPS and `NEXT_PUBLIC_APP_URL`
+- [ ] Schedule cron for auto-billing
+- [ ] Configure Stripe webhooks
+
+## Related Docs
+
+- [`LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md`](./LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md) — product spec, data model, business rules, and implementation status
+- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — UI tokens, components, and conventions

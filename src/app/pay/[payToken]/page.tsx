@@ -40,11 +40,11 @@ export default async function TenantPayPage({
     "Your landlord";
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-12">
+    <div className="min-h-screen bg-surface-muted px-4 py-12">
       <div className="mx-auto max-w-lg space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-900">Pay your statement</h1>
-          <p className="mt-1 text-slate-500">{landlordName}</p>
+          <h1 className="text-2xl font-bold text-foreground">Pay your statement</h1>
+          <p className="mt-1 text-muted">{landlordName}</p>
         </div>
 
         {success && (
@@ -61,26 +61,26 @@ export default async function TenantPayPage({
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle>{statement.statementNumber}</CardTitle>
-              <p className="text-sm text-slate-500">
+              <p className="text-sm text-muted">
                 {statement.unit.property.name} · {statement.unit.name} · {monthLabel}
               </p>
             </div>
             <Badge variant={paymentInfo.variant}>{paymentInfo.label}</Badge>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border border-slate-100 p-4 text-sm">
-              <p className="text-slate-600">
+            <div className="rounded-lg border border-border-subtle p-4 text-sm">
+              <p className="text-muted-foreground">
                 Tenant: {statement.tenant.firstName} {statement.tenant.lastName}
               </p>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-muted-foreground">
                 Due date: {statement.dueDate.toLocaleDateString("en-CA")}
               </p>
               {statement.paidAmountCents > 0 && (
-                <p className="mt-2 text-slate-600">
+                <p className="mt-2 text-muted-foreground">
                   Paid so far: {formatMoney(statement.paidAmountCents)}
                 </p>
               )}
-              <p className="mt-3 text-2xl font-bold text-slate-900">
+              <p className="mt-3 text-2xl font-bold text-foreground">
                 {paymentInfo.key === "paid" ? "Paid in full" : formatMoney(outstanding)}
               </p>
             </div>
@@ -100,7 +100,7 @@ export default async function TenantPayPage({
             )}
 
             {paymentInfo.key === "paid" && (
-              <p className="text-center text-sm text-slate-500">
+              <p className="text-center text-sm text-muted">
                 This statement is fully paid. Contact {landlordName} if you have questions.
               </p>
             )}

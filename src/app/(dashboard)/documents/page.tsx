@@ -3,9 +3,10 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadDocumentAction } from "@/app/actions/app";
 import { PageBackNav } from "@/components/layout/page-back-nav";
+import { FlashAlert } from "@/components/flash-alert";
+import { SubmitButton } from "@/components/submit-button";
 import type { DocumentCategory } from "@prisma/client";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -70,11 +71,17 @@ export default async function DocumentsPage({
       <PageBackNav />
       <div>
         <h1 className="text-2xl font-bold">Documents</h1>
-        <p className="text-slate-500">All leases, bills, statements, and receipts</p>
+        <p className="text-muted">All leases, bills, statements, and receipts</p>
       </div>
 
-      {params.uploaded && <Alert>Document uploaded successfully.</Alert>}
-      {params.error && <Alert variant="error">Please select a file to upload.</Alert>}
+      {params.uploaded && (
+        <FlashAlert clearParams={["uploaded"]}>Document uploaded successfully.</FlashAlert>
+      )}
+      {params.error && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Please select a file to upload.
+        </FlashAlert>
+      )}
 
       <Card>
         <CardHeader>
@@ -113,7 +120,7 @@ export default async function DocumentsPage({
               </Select>
             </div>
             <div className="flex items-end gap-2">
-              <Button type="submit">Apply</Button>
+              <SubmitButton pendingLabel="Applying…">Apply</SubmitButton>
               <Link href="/documents">
                 <Button type="button" variant="outline">
                   Clear
@@ -160,7 +167,7 @@ export default async function DocumentsPage({
               <Input id="file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
             </div>
             <div className="flex items-end">
-              <Button type="submit">Upload</Button>
+              <SubmitButton pendingLabel="Uploading…">Upload</SubmitButton>
             </div>
           </form>
         </CardContent>
@@ -174,7 +181,7 @@ export default async function DocumentsPage({
         </CardHeader>
         <CardContent>
           {documents.length === 0 ? (
-            <p className="text-sm text-slate-500">No documents match your filters.</p>
+            <p className="text-sm text-muted">No documents match your filters.</p>
           ) : (
             <Table>
               <thead>

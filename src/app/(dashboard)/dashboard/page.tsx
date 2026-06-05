@@ -16,10 +16,11 @@ import { syncOverdueStatements } from "@/lib/overdue";
 import { getLeasesEndingSoon } from "@/lib/lease-reminders";
 import { getPaymentStatus } from "@/lib/payment-status";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { FlashAlert } from "@/components/flash-alert";
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -59,13 +60,7 @@ export default async function DashboardPage() {
 
   const properties = await prisma.property.findMany({
     where: { userId: user.id },
-    include: {
-      units: {
-        include: {
-          tenants: { where: { isActive: true } },
-        },
-      },
-    },
+    include: { units: true },
   });
 
   const totalRentCents = properties.reduce(
@@ -131,18 +126,32 @@ export default async function DashboardPage() {
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
   const propertyIds = properties.map((p) => p.id);
-  const billsThisMonth = propertyIds.length
-    ? await prisma.utilityBill.count({
-        where: {
-          propertyId: { in: propertyIds },
-          billingPeriodStart: { lte: monthEnd },
-          billingPeriodEnd: { gte: monthStart },
-        },
-      })
-    : 0;
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  const billsByProperty =
+    propertyIds.length > 0
+      ? await prisma.utilityBill.groupBy({
+          by: ["propertyId"],
+          where: {
+            propertyId: { in: propertyIds },
+            OR: [
+              { billMonth: currentMonth, billYear: currentYear },
+              {
+                billingPeriodStart: { lte: monthEnd },
+                billingPeriodEnd: { gte: monthStart },
+              },
+            ],
+          },
+        })
+      : [];
+
+  const propertiesWithBills = new Set(billsByProperty.map((row) => row.propertyId));
+  const propertiesMissingBills = properties.filter(
+    (property) => property.units.length > 0 && !propertiesWithBills.has(property.id)
+  );
 
   const unitCount = properties.reduce((sum, p) => sum + p.units.length, 0);
-  const missingBills = unitCount > 0 && billsThisMonth === 0 ? 1 : 0;
 
   const leasesEndingSoon = await getLeasesEndingSoon(user.id, reminderDays);
 
@@ -160,13 +169,86 @@ export default async function DashboardPage() {
   });
 
   const paymentBreakdown = [
-    { label: "Paid", count: paymentCounts.paid, accent: "text-success" },
-    { label: "Unpaid", count: paymentCounts.unpaid, accent: "text-foreground" },
-    { label: "Overdue", count: paymentCounts.overdue, accent: "text-danger" },
-    { label: "Partial", count: paymentCounts.partial, accent: "text-warning" },
-    { label: "Pending online", count: paymentCounts.pending, accent: "text-warning" },
-    { label: "Drafts", count: draftStatements, accent: "text-muted" },
+    { label: "Paid", count: paymentCounts.paid, accent: "text-success", payment: "paid" },
+    { label: "Unpaid", count: paymentCounts.unpaid, accent: "text-foreground", payment: "unpaid" },
+    { label: "Overdue", count: paymentCounts.overdue, accent: "text-danger", payment: "overdue" },
+    { label: "Partial", count: paymentCounts.partial, accent: "text-warning", payment: "partial" },
+    {
+      label: "Pending online",
+      count: paymentCounts.pending,
+      accent: "text-warning",
+      payment: "pending_online",
+    },
+    { label: "Drafts", count: draftStatements, accent: "text-muted", payment: "draft" },
   ] as const;
+
+  const [utilityRuleCount, statementCount, tenantUnit] = await Promise.all([
+    prisma.utilityRule.count({
+      where: {
+        unit: { property: { userId: user.id } },
+        tenantPays: true,
+        includedInRent: false,
+        percentage: { gt: 0 },
+      },
+    }),
+    prisma.statement.count({
+      where: { unit: { property: { userId: user.id } } },
+    }),
+    prisma.unit.findFirst({
+      where: {
+        property: { userId: user.id },
+        tenants: { some: { isActive: true } },
+      },
+      select: { id: true, propertyId: true },
+    }),
+  ]);
+
+  const firstProperty = properties[0];
+  const onboardingSteps = [
+    {
+      id: "property",
+      label: "Add a property",
+      description: "Create your first rental property with address details.",
+      done: properties.length > 0,
+      href: "/properties/new",
+    },
+    {
+      id: "tenant",
+      label: "Add a unit and tenant",
+      description: "Set rent amount and assign an active tenant to a unit.",
+      done: Boolean(tenantUnit),
+      href: firstProperty
+        ? `/properties/${firstProperty.id}/units/new`
+        : "/properties/new",
+    },
+    {
+      id: "utilities",
+      label: "Configure utility split rules",
+      description: "Define how gas, water, and electricity are split per unit.",
+      done: utilityRuleCount > 0,
+      href: tenantUnit
+        ? `/properties/${tenantUnit.propertyId}/units/${tenantUnit.id}/utilities`
+        : firstProperty
+          ? `/properties/${firstProperty.id}`
+          : "/properties/new",
+    },
+    {
+      id: "bills",
+      label: "Import monthly bill amounts",
+      description: "Upload an .xlsx or enter amounts for the current month.",
+      done: propertiesMissingBills.length === 0 && unitCount > 0,
+      href: firstProperty
+        ? `/properties/${firstProperty.id}/utility-bills/import`
+        : "/utility-bills",
+    },
+    {
+      id: "statements",
+      label: "Generate your first statements",
+      description: "Create draft statements from rent and utility data.",
+      done: statementCount > 0,
+      href: "/statements/generate",
+    },
+  ];
 
   const displayName = user.name || user.email.split("@")[0];
 
@@ -188,6 +270,8 @@ export default async function DashboardPage() {
           }
         />
       </section>
+
+      <OnboardingChecklist steps={onboardingSteps} />
 
       <section>
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted">
@@ -219,6 +303,7 @@ export default async function DashboardPage() {
             value={openMaintenance}
             icon={Wrench}
             accent={openMaintenance > 0 ? "warning" : "neutral"}
+            href="/maintenance?status=open"
           />
         </div>
       </section>
@@ -232,57 +317,44 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               {paymentBreakdown.map((item) => (
-                <div
+                <Link
                   key={item.label}
-                  className="rounded-lg border border-border-subtle bg-surface-muted/50 px-4 py-3 text-center"
+                  href={`/statements?payment=${item.payment}`}
+                  className="rounded-lg border border-border-subtle bg-surface-muted/50 px-4 py-3 text-center transition-colors hover:border-primary/25 hover:bg-primary-muted/30"
                 >
                   <p className={cn("text-2xl font-semibold tabular-nums", item.accent)}>
                     {item.count}
                   </p>
                   <p className="mt-0.5 text-xs font-medium text-muted">{item.label}</p>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>
         </Card>
       </section>
 
-      {(settings?.autoSendStatements || settings?.utilityAutomationEnabled || missingBills > 0) && (
+      {(settings?.autoSendStatements || propertiesMissingBills.length > 0) && (
         <section className="space-y-3">
           {settings?.autoSendStatements && (
-            <Alert variant="info">
+            <FlashAlert variant="info" clearParams={[]}>
               Automatic invoice sender is on — statements go out on day{" "}
               {settings.autoSendDayOfMonth} of each month.{" "}
               <Link href="/settings" className="font-medium underline underline-offset-2">
                 Settings
               </Link>
-            </Alert>
+            </FlashAlert>
           )}
-          {settings?.utilityAutomationEnabled && (
-            <Alert variant="info">
-              <strong>Green Button utility sync</strong> is enabled. Connect accounts on each
-              property&apos;s Green Button page, then schedule{" "}
-              <code className="rounded-md bg-primary-muted/80 px-1.5 py-0.5 text-xs">
-                /api/cron/green-button-sync
-              </code>{" "}
-              or use Sync in{" "}
-              <Link href="/settings" className="font-medium underline underline-offset-2">
-                Settings
-              </Link>
-              .
-            </Alert>
-          )}
-          {missingBills > 0 && properties.length > 0 && (
-            <Alert variant="warning">
-              No utility bills uploaded for the current billing period.{" "}
+          {propertiesMissingBills.map((property) => (
+            <FlashAlert key={property.id} variant="warning" clearParams={[]}>
+              No utility bills for {property.name} this month.{" "}
               <Link
-                href={`/properties/${properties[0].id}/utility-bills/new`}
+                href={`/properties/${property.id}/utility-bills/import`}
                 className="font-medium underline underline-offset-2"
               >
-                Upload a bill
+                Import bill amounts
               </Link>
-            </Alert>
-          )}
+            </FlashAlert>
+          ))}
         </section>
       )}
 
@@ -421,12 +493,15 @@ export default async function DashboardPage() {
             ) : (
               <ul className="divide-y divide-border-subtle">
                 {recentDocuments.map((doc) => (
-                  <li
-                    key={doc.id}
-                    className="flex items-center justify-between gap-3 py-3 text-sm first:pt-0 last:pb-0"
-                  >
-                    <span className="truncate font-medium text-foreground">{doc.fileName}</span>
-                    <Badge variant="secondary">{doc.category.replace("_", " ")}</Badge>
+                  <li key={doc.id} className="first:pt-0 last:pb-0">
+                    <Link
+                      href={`/api/documents/${doc.id}`}
+                      target="_blank"
+                      className="flex items-center justify-between gap-3 rounded-lg py-3 text-sm transition-colors hover:bg-surface-muted/60"
+                    >
+                      <span className="truncate font-medium text-foreground">{doc.fileName}</span>
+                      <Badge variant="secondary">{doc.category.replace("_", " ")}</Badge>
+                    </Link>
                   </li>
                 ))}
               </ul>

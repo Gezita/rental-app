@@ -34,10 +34,3 @@ export async function requireStatement(userId: string, statementId: string) {
   return statement;
 }
 
-export async function requireGreenButtonConnection(userId: string, connectionId: string) {
-  const connection = await prisma.greenButtonConnection.findFirst({
-    where: { id: connectionId, property: { userId } },
-  });
-  if (!connection) throw new Error("Connection not found");
-  return connection;
-}

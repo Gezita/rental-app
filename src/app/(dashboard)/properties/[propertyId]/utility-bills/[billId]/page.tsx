@@ -40,7 +40,7 @@ export default async function UtilityBillDetailPage({
         <h1 className="text-2xl font-bold">
           {UTILITY_TYPE_LABELS[bill.utilityType]} Bill — {formatMoney(bill.amountCents)}
         </h1>
-        <p className="text-slate-500">
+        <p className="text-muted">
           {bill.billingPeriodStart.toLocaleDateString()} – {bill.billingPeriodEnd.toLocaleDateString()}
         </p>
       </div>
@@ -67,7 +67,7 @@ export default async function UtilityBillDetailPage({
         </CardHeader>
         <CardContent>
           {bill.splits.length === 0 ? (
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-muted">
               No splits calculated. Set utility rules on each unit first.
             </p>
           ) : (

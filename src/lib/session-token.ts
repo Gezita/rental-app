@@ -1,5 +1,12 @@
-const SESSION_SECRET =
-  process.env.SESSION_SECRET ?? "dev-secret-change-in-production";
+const DEFAULT_SECRET = "dev-secret-change-in-production";
+
+function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET ?? DEFAULT_SECRET;
+  if (process.env.NODE_ENV === "production" && secret === DEFAULT_SECRET) {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+  return secret;
+}
 
 function toHex(buffer: ArrayBuffer) {
   return Array.from(new Uint8Array(buffer))
@@ -10,7 +17,7 @@ function toHex(buffer: ArrayBuffer) {
 async function signUserId(userId: string) {
   const key = await crypto.subtle.importKey(
     "raw",
-    new TextEncoder().encode(SESSION_SECRET),
+    new TextEncoder().encode(getSessionSecret()),
     { name: "HMAC", hash: "SHA-256" },
     false,
     ["sign"]
@@ -43,12 +50,10 @@ export async function parseSessionToken(token: string | undefined): Promise<stri
   const expected = await signUserId(userId);
   if (signature.length !== expected.length) return null;
 
-  let valid = true;
+  let mismatch = 0;
   for (let i = 0; i < signature.length; i += 1) {
-    if (signature.charCodeAt(i) !== expected.charCodeAt(i)) {
-      valid = false;
-    }
+    mismatch |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
   }
 
-  return valid ? userId : null;
+  return mismatch === 0 ? userId : null;
 }

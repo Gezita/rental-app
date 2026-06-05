@@ -64,7 +64,7 @@ export default async function MaintenanceReceiptsPage({
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Maintenance Receipts</h1>
-          <p className="text-slate-500">
+          <p className="text-muted">
             Repository of maintenance invoices and receipts across all properties
           </p>
         </div>
@@ -176,7 +176,7 @@ export default async function MaintenanceReceiptsPage({
         </CardHeader>
         <CardContent>
           {receipts.length === 0 ? (
-            <p className="text-sm text-slate-500">No maintenance receipts uploaded yet.</p>
+            <p className="text-sm text-muted">No maintenance receipts uploaded yet.</p>
           ) : (
             <Table>
               <thead>
@@ -201,7 +201,7 @@ export default async function MaintenanceReceiptsPage({
                     </Td>
                     <Td>{receipt.property?.name || "—"}</Td>
                     <Td>{receipt.unit?.name || "—"}</Td>
-                    <Td className="max-w-xs truncate text-sm text-slate-500">
+                    <Td className="max-w-xs truncate text-sm text-muted">
                       {receipt.notes || "—"}
                     </Td>
                     <Td>{receipt.createdAt.toLocaleDateString()}</Td>

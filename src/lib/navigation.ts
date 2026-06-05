@@ -7,6 +7,7 @@ export type NavItem = {
 export const dashboardNavItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", exact: true },
   { href: "/properties", label: "Properties" },
+  { href: "/utility-bills", label: "Utility Bills" },
   { href: "/statements", label: "Statements" },
   { href: "/notices", label: "LTB Notices" },
   { href: "/documents", label: "Documents" },

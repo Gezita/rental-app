@@ -1,8 +1,9 @@
 import { updateProfileAction } from "@/app/actions/app";
 import { requireUser } from "@/lib/auth";
 import { PageBackNav } from "@/components/layout/page-back-nav";
+import { FlashAlert } from "@/components/flash-alert";
+import { SubmitButton } from "@/components/submit-button";
 import {
-  Alert,
   Button,
   Card,
   CardContent,
@@ -27,10 +28,10 @@ export default async function ProfilePage({
       <PageBackNav />
       <div>
         <h1 className="text-2xl font-bold">Profile</h1>
-        <p className="text-slate-500">Your account information</p>
+        <p className="text-muted">Your account information</p>
       </div>
 
-      {saved && <Alert>Profile updated.</Alert>}
+      {saved && <FlashAlert clearParams={["saved"]}>Profile updated.</FlashAlert>}
 
       <Card>
         <CardHeader>
@@ -46,9 +47,9 @@ export default async function ProfilePage({
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" value={user.email} disabled />
-              <p className="text-xs text-slate-500">Email cannot be changed in the MVP.</p>
+              <p className="text-xs text-muted">Email cannot be changed in the MVP.</p>
             </div>
-            <Button type="submit">Save Profile</Button>
+            <SubmitButton pendingLabel="Saving…">Save Profile</SubmitButton>
           </form>
         </CardContent>
       </Card>
@@ -58,7 +59,7 @@ export default async function ProfilePage({
           <CardTitle>Billing & Templates</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="mb-4 text-sm text-slate-600">
+          <p className="mb-4 text-sm text-muted-foreground">
             Update payment instructions and statement templates in settings.
           </p>
           <Link href="/settings">

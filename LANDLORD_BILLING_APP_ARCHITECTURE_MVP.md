@@ -1,86 +1,103 @@
-# Landlord Billing & Document Management App — MVP Architecture
+# Landlord Billing & Document Management App — Architecture & Implementation Guide
+
+> **Last updated:** June 2026 — reflects the current codebase, not the original planning doc alone.
+
+## Implementation Status
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Auth (sign up / sign in) | ✅ Done | bcrypt passwords, HMAC session cookies |
+| Properties, units, tenants | ✅ Done | Tenant creation also creates active lease |
+| Utility rules | ✅ Done | Per-unit percentages, included-in-rent flag |
+| Manual utility bills | ✅ Done | PDF upload, auto-split, upsert by month |
+| Spreadsheet bill database | ✅ Done | Server-side xlsx parse; gas/water/electricity |
+| Statement generation | ✅ Done | Draft-first; rent + utilities + prior balance |
+| Statement send + PDF | ✅ Done | pdf-lib; email logged to console in dev |
+| Partial payments + receipts | ✅ Done | Multiple payments per statement |
+| Stripe online payments | ✅ Done | `/pay/[token]` checkout flow |
+| Auto-billing cron | ✅ Done | Generate + email drafts on schedule |
+| LTB notices | ✅ Done | Ontario N-series forms |
+| Maintenance tracking | ✅ Done | Status, cost, invoice upload |
+| PWA / offline shell | ✅ Done | manifest, service worker |
+| Tenant portal | ❌ Not built | Tenants only get email + pay link |
+| OCR bill reading | ❌ Not built | Manual entry + spreadsheet import |
+| Multi-user teams | ❌ Not built | Single landlord per account |
+| PostgreSQL / cloud storage | ⚠️ Dev only | SQLite + local `uploads/` folder |
+
+---
 
 ## 1. Product Summary
 
 The app helps small landlords manage rental units, tenant information, lease documents, utility bills, monthly tenant statements, receipts, and maintenance records.
 
-The MVP should focus on one strong use case:
+**Core value proposition:**
 
-> A landlord can set up properties and units, define rent and utility-split rules, upload utility bills, auto-generate monthly tenant statements, send them to tenants, record payments, generate receipts, and keep all documents organized by property and unit.
+> A landlord can set up properties and units, define rent and utility-split rules, import or upload utility bills, auto-generate monthly tenant statements, send them to tenants, record payments (including partial), generate receipts, and keep all documents organized by property and unit.
 
-This app is designed for small landlords managing 1–20 units, especially duplexes, triplexes, basement apartments, and small rental portfolios where utilities are often shared between units.
+**Target users:** Small landlords with 1–20 units — duplexes, triplexes, basement apartments, and small portfolios where utilities are shared.
 
 ---
 
 ## 2. MVP Goals
 
-### Primary Goals
+### Delivered
 
-1. Let landlords create properties and units.
-2. Let landlords add tenants to units.
-3. Let landlords define rent, due dates, discounts, and utility responsibility rules.
-4. Let landlords upload utility bills and assign/split them between units.
-5. Auto-generate monthly tenant statements.
-6. Store all generated statements, receipts, leases, utility bills, and maintenance documents.
-7. Track maintenance expenses and invoices.
-8. Allow landlords to send tenant statements by email.
-9. Allow landlords to mark statements as paid and generate receipts.
+1. Properties, units, tenants, and leases
+2. Rent, due dates, and utility responsibility rules per unit
+3. Utility bill upload and automatic split between units
+4. Spreadsheet bill database for recurring monthly amounts
+5. Monthly statement generation with prior-balance roll-forward
+6. Document storage (leases, bills, statements, receipts, notices)
+7. Maintenance expense and invoice tracking
+8. Email statements and receipts (dev: console; prod: wire email provider)
+9. Mark statements paid / record partial payments / generate receipts
+10. Stripe card payments via pay link
+11. Auto-send statements on configurable day of month
+12. Lease end reminders on dashboard
+13. LTB notice download, upload, and email
 
-### Out of Scope for MVP
+### Still Out of Scope
 
-The MVP should avoid these features initially:
-
-- Online rent collection/payment processing.
-- Tenant screening.
-- Credit checks.
-- Full accounting/bookkeeping system.
-- Tax filing automation.
-- E-signature lease workflow.
-- Tenant portal.
-- Mobile app.
-- AI/OCR bill reading.
-- Multi-user teams and roles.
-- Advanced reporting.
-
-These can be added later after the core billing/document workflow is validated.
+- Tenant self-service portal
+- Tenant screening / credit checks
+- Full accounting / tax filing
+- E-signature leases
+- AI/OCR bill reading
+- Multi-user roles and permissions
+- Advanced reporting / CRA exports
+- Native mobile app (PWA only)
 
 ---
 
-## 3. Recommended Tech Stack
-
-The developer can adjust based on preference, but this stack is recommended for speed, maintainability, and MVP scalability.
+## 3. Tech Stack (As Built)
 
 ### Frontend
 
-- **Framework:** Next.js with App Router
-- **Language:** TypeScript
-- **UI:** Tailwind CSS + shadcn/ui
-- **Forms:** React Hook Form + Zod
-- **State Management:** Server components where possible; TanStack Query for client-side async state if needed
-- **Tables:** TanStack Table
-- **PDF Preview:** Browser-native PDF viewer or react-pdf later
+- **Next.js 15** App Router + **React 19** + **TypeScript**
+- **Tailwind CSS 4** — custom tokens in `globals.css` (see `STYLE_GUIDE.md`)
+- **Server Components** by default; client components for forms, flash alerts, submit pending state
+- **lucide-react** icons with `optimizePackageImports`
 
 ### Backend
 
-Option A — Recommended for fast MVP:
+- **Next.js Server Actions** — all mutations in `src/app/actions/`
+- **Prisma 6** ORM
+- **SQLite** for local dev (`DATABASE_URL=file:./dev.db`)
+- **Auth:** custom bcrypt + HMAC-signed cookies (`SESSION_SECRET`)
+- **File storage:** local `uploads/` directory (`src/lib/files.ts`)
+- **Email:** `src/lib/email.ts` — logs to console in development
+- **PDF:** `pdf-lib` (`src/lib/pdf.ts`)
+- **Spreadsheets:** `xlsx` — **server-only**, dynamically imported
 
-- **Runtime:** Next.js API routes / server actions
-- **ORM:** Prisma
-- **Database:** PostgreSQL
-- **Auth:** Clerk, Supabase Auth, or Auth.js
-- **File Storage:** S3-compatible storage, Supabase Storage, or Cloudflare R2
-- **Email:** Resend, Postmark, or SendGrid
-- **PDF Generation:** React PDF, Playwright HTML-to-PDF, or server-side PDF service
+### Recommended for Production
 
-Option B — More scalable split backend:
-
-- **Frontend:** Next.js
-- **Backend:** NestJS or FastAPI
-- **Database:** PostgreSQL
-- **File Storage:** S3/R2/Supabase Storage
-- **Queue:** BullMQ/Redis for email and PDF jobs
-
-For MVP, Option A is simpler and faster.
+| Concern | Current (dev) | Production recommendation |
+|---------|---------------|---------------------------|
+| Database | SQLite | PostgreSQL |
+| Files | Local disk | S3 / R2 / Supabase Storage |
+| Email | Console | Resend, Postmark, or SendGrid |
+| Hosting | localhost | Vercel, Railway, or VPS with HTTPS |
+| Cron | Manual curl | Vercel Cron, GitHub Actions, or system cron |
 
 ---
 
@@ -88,1348 +105,400 @@ For MVP, Option A is simpler and faster.
 
 ```text
 App
-├── Authentication
-├── Dashboard
-├── Properties
-├── Units
-├── Tenants
-├── Utility Bills
-├── Utility Rules
-├── Monthly Statements
-├── Payments & Receipts
-├── Documents
-├── Maintenance
-├── Email Sending
-├── PDF Generation
-└── Settings
+├── Authentication          src/app/(auth)/, src/lib/auth.ts, src/middleware.ts
+├── Dashboard               src/app/(dashboard)/dashboard/
+├── Properties & Units      src/app/(dashboard)/properties/
+├── Utility Bills           Per-property bills + global /utility-bills hub
+├── Utility Rules           Per-unit rules at …/units/[unitId]/utilities
+├── Monthly Statements      src/lib/statements.ts, src/app/(dashboard)/statements/
+├── Payments & Receipts     src/lib/record-payment.ts, Stripe /api/stripe/
+├── Documents               src/app/(dashboard)/documents/
+├── Maintenance             src/app/(dashboard)/maintenance/
+├── LTB Notices             src/app/(dashboard)/notices/, src/lib/ltb-forms.ts
+├── Email                   src/lib/email.ts, src/lib/tenant-communications.ts
+├── PDF Generation          src/lib/pdf.ts
+├── Auto-billing            src/lib/auto-billing.ts, /api/cron/auto-billing
+└── Settings                src/app/(dashboard)/settings/
 ```
 
 ---
 
 ## 5. User Roles
 
-For MVP, only one role is required.
+**MVP:** Single role — **Landlord / Owner**.
 
-### Landlord / Owner
+All data is scoped by `userId`. Authorization helpers in `src/lib/ownership.ts`:
 
-Can:
+- `requireProperty(userId, propertyId)`
+- `requireUnit(userId, unitId)`
+- `requireTenant(userId, tenantId)`
+- `requireStatement(userId, statementId)`
 
-- Create and edit properties.
-- Create and edit units.
-- Add tenant information.
-- Upload documents.
-- Create utility rules.
-- Upload bills.
-- Generate statements.
-- Send statements.
-- Mark statements as paid.
-- Generate receipts.
-- Add maintenance records.
-
-### Future Roles
-
-For later versions:
-
-- Admin
-- Property manager
-- Accountant/read-only user
-- Tenant portal user
+**Future:** Admin, property manager, accountant (read-only), tenant portal user.
 
 ---
 
-## 6. Information Architecture
+## 6. Information Architecture (Routes)
 
 ```text
-Dashboard
-├── Portfolio summary
-├── Monthly statement status
-├── Missing utility bills
-├── Overdue statements
-├── Recent documents
-└── Maintenance reminders
-
-Properties
-├── Property list
-└── Property detail
-    ├── Overview
-    ├── Units
-    │   └── Unit detail
-    │       ├── Overview
-    │       ├── Tenant
-    │       ├── Rent settings
-    │       ├── Utility rules
-    │       ├── Statements
-    │       ├── Documents
-    │       └── Maintenance
-    ├── Utility bills
-    ├── Documents
-    └── Maintenance
-
-Statements
-├── Generate monthly statements
-├── Draft statements
-├── Sent statements
-├── Paid statements
-├── Overdue statements
-└── Receipts
-
-Documents
-├── All documents
-├── Leases
-├── Utility bills
-├── Statements
-├── Receipts
-├── Maintenance invoices
-├── Notices
-└── Other
-
-Maintenance
-├── All maintenance
-├── Open
-├── In progress
-├── Completed
-└── Vendors
-
-Settings
-├── Account
-├── Email template
-├── Statement template
-├── Utility categories
-└── Payment instructions
+/dashboard                    Portfolio summary, onboarding, alerts
+/properties                   Property list
+/properties/new               Create property
+/properties/[id]              Property detail + units
+/properties/[id]/units/new    Add unit
+/properties/[id]/units/[unitId]           Unit detail (tenant, rent)
+/properties/[id]/units/[unitId]/utilities Utility split rules
+/properties/[id]/units/[unitId]/statements Unit statement history
+/properties/[id]/utility-bills            Bill list
+/properties/[id]/utility-bills/import     Spreadsheet + manual entry
+/properties/[id]/utility-bills/new        Manual bill with PDF
+/utility-bills                Cross-property bill hub
+/statements                   All statements (filter by payment, unit)
+/statements/generate          Generate current or past statements
+/statements/[id]              Statement detail, send, pay, refresh
+/notices                      LTB form download + upload + email
+/documents                    All documents
+/maintenance                  Maintenance records
+/maintenance/receipts         Receipt repository
+/profile                      Account profile
+/settings                     Auto-send, Stripe, payment instructions
+/pay/[payToken]               Tenant Stripe checkout (public)
+/sign-in, /sign-up            Auth
 ```
+
+Navigation config: `src/lib/navigation.ts`
 
 ---
 
 ## 7. Main User Flows
 
-### 7.1 First-Time Setup Flow
+### 7.1 First-Time Setup
 
 ```text
-Sign up
-→ Create property
-→ Add property address
-→ Add first unit
-→ Add rent amount and due date
-→ Add tenant info
-→ Upload lease
-→ Set utility rules
-→ Land on unit dashboard
+Sign up → Create property → Add unit → Add tenant (+ lease created)
+→ Set utility rules → Import bill amounts → Generate statements
 ```
 
-### 7.2 Upload Utility Bill Flow
+Dashboard onboarding checklist tracks: property, tenant, utility rules, bills, statements.
+
+### 7.2 Utility Bill Import (Spreadsheet)
 
 ```text
-Dashboard or Property Detail
-→ Upload utility bill
-→ Select property
-→ Select utility type
-→ Enter provider, amount, billing period, due date
-→ Upload PDF/image
-→ App applies utility split rules
-→ User reviews split preview
-→ Save bill
-→ Bill is stored in documents
-→ Bill becomes available for next statement run
+Property → Utility bills → Import
+→ Choose utility type (gas/water/electricity)
+→ Upload .xlsx (max 10 MB)
+→ Server previews row count
+→ Confirm replace (destructive for that utility's spreadsheet bills)
+→ Bills saved with billMonth/billYear → splits calculated per unit rules
 ```
 
-### 7.3 Generate Monthly Statement Flow
+Supported formats: Enbridge gas exports, Alectra-style bill history, generic Month/Year/Amount tables. See `scripts/test-parse-bills.ts` and `public/samples/`.
+
+### 7.3 Manual Utility Bill
 
 ```text
-Statements
-→ Generate monthly statements
-→ Select month and property
-→ App pulls active units, rent, utilities, discounts, previous balances
-→ App creates draft statements
-→ Landlord reviews each statement
-→ Landlord edits if needed
-→ Landlord sends selected statements
-→ App stores sent PDFs in documents
+Property → Utility bills → New
+→ Enter type, amount, billing period, optional PDF
+→ Upserts on property + type + bill month (no duplicate key errors)
+→ Splits recalculated
 ```
 
-### 7.4 Payment and Receipt Flow
+### 7.4 Generate Monthly Statements
 
 ```text
-Open sent statement
-→ Mark as paid
-→ Enter payment date
-→ Enter payment method
-→ Add reference/note
-→ Generate receipt
-→ Send receipt to tenant if needed
-→ Store receipt in documents
+Statements → Generate → Select property, month, units
+→ For each unit with active tenant:
+    - Rent line item
+    - Utility splits for matching bill month
+    - Prior balance (sent/overdue/partial only — not drafts)
+→ Draft statements created
+→ Review → Send (email + PDF)
 ```
 
-### 7.5 Maintenance Flow
+### 7.5 Payment and Receipt
 
 ```text
-Maintenance
-→ Add maintenance item
-→ Select property and optional unit
-→ Enter category, date, vendor, cost, status
-→ Upload invoice/photos
-→ Save
-→ Record appears in property/unit maintenance history
-→ Invoice appears in documents
+Open statement → Record payment (full or partial)
+→ Payment capped at outstanding balance
+→ Status: partial | paid
+→ Receipt PDF generated on full payment
+→ Optional receipt email
+```
+
+Stripe: tenant uses pay link in email → `checkout.session.completed` webhook records payment.
+
+### 7.6 Maintenance
+
+```text
+Maintenance → New → Property, unit, category, cost, invoice upload
+→ Appears in maintenance list and documents
 ```
 
 ---
 
-## 8. Core Database Models
+## 8. Database Models
 
-The following models can be implemented with Prisma or any ORM.
+Schema: `prisma/schema.prisma`. Money is always **integer cents**.
 
-### 8.1 User
+### Key models
 
-```ts
-type User = {
-  id: string;
-  email: string;
-  name?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
+| Model | Purpose |
+|-------|---------|
+| `User` | Landlord account |
+| `UserSettings` | Landlord name, payment instructions, auto-send, Stripe toggle, lease reminder days |
+| `Property` | Rental property |
+| `Unit` | Rentable unit within property |
+| `Tenant` | Person assigned to unit (`isActive` flag) |
+| `Lease` | Lease record (created with tenant; also from lease upload) |
+| `UtilityRule` | Per-unit utility split (`@@unique([unitId, utilityType])`) |
+| `UtilityBill` | Property-level bill (`source`: manual \| spreadsheet) |
+| `UtilityBillSplit` | Calculated amount per unit per bill |
+| `Statement` | Monthly tenant invoice |
+| `StatementLineItem` | Rent, utility, previous_balance, etc. |
+| `Payment` | Payment against statement |
+| `Receipt` | Receipt after payment |
+| `Document` | File metadata (local path in dev) |
+| `MaintenanceRecord` | Repair/expense tracking |
+
+### Important constraints
+
+```prisma
+@@unique([propertyId, utilityType, billMonth, billYear])  // UtilityBill
+@@unique([unitId, statementMonth, statementYear])         // Statement
+@@unique([unitId, utilityType])                          // UtilityRule
 ```
 
-### 8.2 Property
+### Statement statuses
 
-```ts
-type Property = {
-  id: string;
-  userId: string;
-  name: string;
-  addressLine1: string;
-  addressLine2?: string;
-  city: string;
-  province?: string;
-  postalCode?: string;
-  country: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.3 Unit
-
-```ts
-type Unit = {
-  id: string;
-  propertyId: string;
-  name: string; // Example: Main Floor, Basement, Unit 1
-  rentAmountCents: number;
-  rentDueDay: number; // 1-31
-  activeTenantId?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.4 Tenant
-
-```ts
-type Tenant = {
-  id: string;
-  unitId: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  moveInDate?: Date;
-  moveOutDate?: Date;
-  emergencyContactName?: string;
-  emergencyContactPhone?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.5 Lease
-
-```ts
-type Lease = {
-  id: string;
-  unitId: string;
-  tenantId: string;
-  documentId?: string;
-  leaseStartDate: Date;
-  leaseEndDate?: Date;
-  rentAmountCents: number;
-  rentDueDay: number;
-  status: 'active' | 'expired' | 'terminated' | 'draft';
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.6 UtilityRule
-
-These are the default monthly utility rules for each unit.
-
-```ts
-type UtilityRule = {
-  id: string;
-  unitId: string;
-  utilityType: 'gas' | 'water' | 'electricity' | 'internet' | 'other';
-  tenantPays: boolean;
-  percentage: number; // Example: 40 means 40%
-  includedInRent: boolean;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.7 UtilityBill
-
-```ts
-type UtilityBill = {
-  id: string;
-  propertyId: string;
-  utilityType: 'gas' | 'water' | 'electricity' | 'internet' | 'other';
-  providerName?: string;
-  amountCents: number;
-  billingPeriodStart: Date;
-  billingPeriodEnd: Date;
-  dueDate?: Date;
-  documentId?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.8 UtilityBillSplit
-
-Stores calculated or manually overridden split amounts.
-
-```ts
-type UtilityBillSplit = {
-  id: string;
-  utilityBillId: string;
-  unitId: string;
-  percentage: number;
-  amountCents: number;
-  isOverride: boolean;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.9 Statement
-
-A statement is a monthly bill/payment request. It is not a receipt until payment is recorded.
-
-```ts
-type Statement = {
-  id: string;
-  unitId: string;
-  tenantId: string;
-  statementNumber: string;
-  statementMonth: number; // 1-12
-  statementYear: number;
-  issueDate: Date;
-  dueDate: Date;
-  rentAmountCents: number;
-  utilityTotalCents: number;
-  discountTotalCents: number;
-  adjustmentTotalCents: number;
-  previousBalanceCents: number;
-  totalDueCents: number;
-  status: 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled';
-  pdfDocumentId?: string;
-  emailSentAt?: Date;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.10 StatementLineItem
-
-```ts
-type StatementLineItem = {
-  id: string;
-  statementId: string;
-  type: 'rent' | 'utility' | 'discount' | 'adjustment' | 'previous_balance' | 'other';
-  description: string;
-  amountCents: number;
-  sourceUtilityBillId?: string;
-  sourceDocumentId?: string;
-  calculationNote?: string; // Example: "$180 gas bill × 40%"
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.11 Payment
-
-```ts
-type Payment = {
-  id: string;
-  statementId: string;
-  amountCents: number;
-  paymentDate: Date;
-  paymentMethod: 'e_transfer' | 'cash' | 'cheque' | 'bank_deposit' | 'other';
-  referenceNumber?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.12 Receipt
-
-```ts
-type Receipt = {
-  id: string;
-  paymentId: string;
-  receiptNumber: string;
-  issueDate: Date;
-  pdfDocumentId?: string;
-  emailSentAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.13 Document
-
-```ts
-type Document = {
-  id: string;
-  userId: string;
-  propertyId?: string;
-  unitId?: string;
-  tenantId?: string;
-  category:
-    | 'lease'
-    | 'utility_bill'
-    | 'statement'
-    | 'receipt'
-    | 'maintenance_invoice'
-    | 'notice'
-    | 'photo'
-    | 'other';
-  fileName: string;
-  fileUrl: string;
-  fileMimeType: string;
-  fileSizeBytes: number;
-  tags?: string[];
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
-
-### 8.14 MaintenanceRecord
-
-```ts
-type MaintenanceRecord = {
-  id: string;
-  propertyId: string;
-  unitId?: string;
-  category:
-    | 'plumbing'
-    | 'electrical'
-    | 'hvac'
-    | 'appliance'
-    | 'roof'
-    | 'pest_control'
-    | 'cleaning'
-    | 'general_repair'
-    | 'other';
-  title: string;
-  description?: string;
-  vendorName?: string;
-  costCents?: number;
-  maintenanceDate?: Date;
-  status: 'planned' | 'in_progress' | 'completed' | 'cancelled';
-  invoiceDocumentId?: string;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-};
-```
+`draft` | `sent` | `partial` | `paid` | `overdue` | `cancelled`
 
 ---
 
-## 9. Database Relationship Summary
-
-```text
-User 1 ── many Properties
-User 1 ── many Documents
-
-Property 1 ── many Units
-Property 1 ── many UtilityBills
-Property 1 ── many Documents
-Property 1 ── many MaintenanceRecords
-
-Unit 1 ── many Tenants
-Unit 1 ── many UtilityRules
-Unit 1 ── many Statements
-Unit 1 ── many Documents
-Unit 1 ── many MaintenanceRecords
-
-Tenant 1 ── many Statements
-Tenant 1 ── many Documents
-
-UtilityBill 1 ── many UtilityBillSplits
-UtilityBill 1 ── many StatementLineItems
-
-Statement 1 ── many StatementLineItems
-Statement 1 ── many Payments
-Payment 1 ── one Receipt
-
-Document can optionally belong to:
-- Property
-- Unit
-- Tenant
-- UtilityBill
-- Statement
-- Receipt
-- MaintenanceRecord
-```
-
----
-
-## 10. Recommended API Routes
-
-These routes assume a REST-style API. If using Next.js server actions, these can be converted into server actions.
-
-### Auth
-
-```http
-GET    /api/me
-```
-
-### Properties
-
-```http
-GET    /api/properties
-POST   /api/properties
-GET    /api/properties/:propertyId
-PATCH  /api/properties/:propertyId
-DELETE /api/properties/:propertyId
-```
-
-### Units
-
-```http
-GET    /api/properties/:propertyId/units
-POST   /api/properties/:propertyId/units
-GET    /api/units/:unitId
-PATCH  /api/units/:unitId
-DELETE /api/units/:unitId
-```
-
-### Tenants
-
-```http
-GET    /api/units/:unitId/tenants
-POST   /api/units/:unitId/tenants
-GET    /api/tenants/:tenantId
-PATCH  /api/tenants/:tenantId
-DELETE /api/tenants/:tenantId
-```
-
-### Utility Rules
-
-```http
-GET    /api/units/:unitId/utility-rules
-POST   /api/units/:unitId/utility-rules
-PATCH  /api/utility-rules/:utilityRuleId
-DELETE /api/utility-rules/:utilityRuleId
-```
-
-### Utility Bills
-
-```http
-GET    /api/properties/:propertyId/utility-bills
-POST   /api/properties/:propertyId/utility-bills
-GET    /api/utility-bills/:utilityBillId
-PATCH  /api/utility-bills/:utilityBillId
-DELETE /api/utility-bills/:utilityBillId
-POST   /api/utility-bills/:utilityBillId/calculate-splits
-```
-
-### Statements
-
-```http
-GET    /api/statements
-POST   /api/statements/generate
-GET    /api/statements/:statementId
-PATCH  /api/statements/:statementId
-POST   /api/statements/:statementId/send
-POST   /api/statements/:statementId/mark-paid
-POST   /api/statements/:statementId/generate-pdf
-DELETE /api/statements/:statementId
-```
-
-### Payments and Receipts
-
-```http
-GET    /api/statements/:statementId/payments
-POST   /api/statements/:statementId/payments
-POST   /api/payments/:paymentId/generate-receipt
-POST   /api/receipts/:receiptId/send
-GET    /api/receipts/:receiptId
-```
-
-### Documents
-
-```http
-GET    /api/documents
-POST   /api/documents/upload
-GET    /api/documents/:documentId
-PATCH  /api/documents/:documentId
-DELETE /api/documents/:documentId
-```
-
-### Maintenance
-
-```http
-GET    /api/maintenance
-POST   /api/maintenance
-GET    /api/maintenance/:maintenanceId
-PATCH  /api/maintenance/:maintenanceId
-DELETE /api/maintenance/:maintenanceId
-```
-
-### Settings
-
-```http
-GET    /api/settings
-PATCH  /api/settings
-```
-
----
-
-## 11. Statement Generation Logic
-
-### Inputs
-
-For a given month and property:
-
-- Active units
-- Active tenants
-- Rent amount
-- Rent due date
-- Utility bills for the selected billing period
-- Utility split rules
-- Discounts
-- Previous unpaid balances
-- Manual adjustments
-
-### Statement Generation Algorithm
-
-```text
-For each active unit in selected property:
-  Find active tenant
-  Create draft statement
-  Add rent line item
-  Find utility bills for selected month/property
-  For each bill:
-    Find utility split for this unit
-    If split exists:
-      Add utility line item
-      Link source utility bill and document
-  Add discounts if configured
-  Add previous balance if any
-  Calculate total due
-  Save as draft
-```
-
-### Utility Split Calculation
-
-```text
-unitUtilityAmount = utilityBillTotalAmount * unitUtilityPercentage / 100
-```
-
-Example:
-
-```text
-Gas bill: $180
-Basement utility rule: 40%
-Basement charge: $180 × 40% = $72
-```
-
-### Validation Rules
-
-- Statement cannot be sent if tenant email is missing.
-- Statement cannot be sent if total due is negative, unless manually approved.
-- Statement should warn if utility bill has no uploaded proof document.
-- Statement should warn if unit has no active tenant.
-- Utility split should warn if percentages exceed 100% across units.
-- Utility split should allow landlord-paid remainder if percentages total less than 100%.
-
----
-
-## 12. Document Storage Rules
-
-Every uploaded or generated document should be categorized and attached to the correct object.
-
-### Utility Bill Upload
-
-When landlord uploads a utility bill:
-
-```text
-Category: utility_bill
-Attached to: property
-Optionally linked to: units through UtilityBillSplit
-```
-
-Suggested virtual path:
-
-```text
-/properties/{propertyId}/utility-bills/{year}/{month}/{utilityType}-{provider}.pdf
-```
-
-### Statement PDF
-
-When a statement PDF is generated:
-
-```text
-Category: statement
-Attached to: property, unit, tenant, statement
-```
-
-Suggested virtual path:
-
-```text
-/properties/{propertyId}/units/{unitId}/statements/{year}-{month}-statement.pdf
-```
-
-### Receipt PDF
-
-When a receipt is generated:
-
-```text
-Category: receipt
-Attached to: property, unit, tenant, payment, receipt
-```
-
-Suggested virtual path:
-
-```text
-/properties/{propertyId}/units/{unitId}/receipts/{year}-{month}-receipt.pdf
-```
-
-### Lease Upload
-
-```text
-Category: lease
-Attached to: property, unit, tenant, lease
-```
-
-Suggested virtual path:
-
-```text
-/properties/{propertyId}/units/{unitId}/lease/active-lease.pdf
-```
-
-### Maintenance Invoice Upload
-
-```text
-Category: maintenance_invoice
-Attached to: property and optional unit
-Linked to: MaintenanceRecord
-```
-
-Suggested virtual path:
-
-```text
-/properties/{propertyId}/maintenance/{year}/{maintenanceId}-invoice.pdf
-```
-
----
-
-## 13. Frontend Page Structure
-
-Recommended Next.js App Router structure:
-
-```text
-app/
-├── (auth)/
-│   ├── sign-in/
-│   └── sign-up/
-├── (dashboard)/
-│   ├── layout.tsx
-│   ├── dashboard/
-│   │   └── page.tsx
-│   ├── properties/
-│   │   ├── page.tsx
-│   │   ├── new/
-│   │   │   └── page.tsx
-│   │   └── [propertyId]/
-│   │       ├── page.tsx
-│   │       ├── units/
-│   │       │   ├── new/
-│   │       │   │   └── page.tsx
-│   │       │   └── [unitId]/
-│   │       │       ├── page.tsx
-│   │       │       ├── tenant/
-│   │       │       ├── utilities/
-│   │       │       ├── statements/
-│   │       │       ├── documents/
-│   │       │       └── maintenance/
-│   │       ├── utility-bills/
-│   │       ├── documents/
-│   │       └── maintenance/
-│   ├── statements/
-│   │   ├── page.tsx
-│   │   ├── generate/
-│   │   │   └── page.tsx
-│   │   └── [statementId]/
-│   │       └── page.tsx
-│   ├── documents/
-│   │   └── page.tsx
-│   ├── maintenance/
-│   │   └── page.tsx
-│   └── settings/
-│       └── page.tsx
-└── api/
-    └── ...
-```
-
----
-
-## 14. Suggested Project Folder Structure
-
-```text
-src/
-├── app/
-├── components/
-│   ├── ui/
-│   ├── layout/
-│   ├── properties/
-│   ├── units/
-│   ├── tenants/
-│   ├── utilities/
-│   ├── statements/
-│   ├── documents/
-│   └── maintenance/
-├── lib/
-│   ├── auth.ts
-│   ├── db.ts
-│   ├── email.ts
-│   ├── files.ts
-│   ├── money.ts
-│   ├── pdf.ts
-│   ├── validators.ts
-│   └── permissions.ts
-├── server/
-│   ├── services/
-│   │   ├── property.service.ts
-│   │   ├── unit.service.ts
-│   │   ├── tenant.service.ts
-│   │   ├── utility-bill.service.ts
-│   │   ├── statement.service.ts
-│   │   ├── document.service.ts
-│   │   ├── maintenance.service.ts
-│   │   └── email.service.ts
-│   └── repositories/
-├── prisma/
-│   ├── schema.prisma
-│   └── migrations/
-├── emails/
-│   ├── statement-email.tsx
-│   └── receipt-email.tsx
-├── pdf-templates/
-│   ├── statement-template.tsx
-│   └── receipt-template.tsx
-└── types/
-```
-
----
-
-## 15. Key UI Screens for MVP
-
-### Dashboard
-
-Must show:
-
-- Total monthly rent expected.
-- Draft statements ready for review.
-- Missing utility bills.
-- Overdue statements.
-- Recent documents.
-- Open maintenance items.
-
-### Property List
-
-Must show:
-
-- Property name/address.
-- Number of units.
-- Monthly rent total.
-- Open balances.
-- Quick action: Add bill, Generate statement.
-
-### Property Detail
-
-Must show:
-
-- Property summary.
-- Units list.
-- Utility bills.
-- Documents.
-- Maintenance.
-
-### Unit Detail
-
-Must show:
-
-- Tenant name.
-- Rent amount.
-- Due date.
-- Lease status.
-- Utility rules.
-- Last statement.
-- Current balance.
-- Documents.
-- Maintenance records.
-
-### Utility Bill Upload
-
-Must show:
-
-- Utility type.
-- Provider.
-- Amount.
-- Billing period.
-- Due date.
-- PDF/image upload.
-- Split preview by unit.
-- Save button.
-
-### Statement Generator
-
-Must show:
-
-- Month/year selection.
-- Property selection.
-- Draft statement table.
-- Rent total.
-- Utility total.
-- Discounts.
-- Total due.
-- Status.
-- Preview/send actions.
-
-### Statement Detail
-
-Must show:
-
-- Tenant info.
-- Statement line items.
-- Linked proof documents.
-- Total due.
-- Status.
-- Send button.
-- Download PDF button.
-- Mark as paid button.
-
-### Documents
-
-Must show:
-
-- Search.
-- Filters by property, unit, category, date.
-- Document table/list.
-- Upload button.
-
-### Maintenance
-
-Must show:
-
-- Maintenance records.
-- Status.
-- Cost.
-- Property/unit.
-- Invoice attachment.
-- Add maintenance button.
-
----
-
-## 16. Email Templates
-
-### Monthly Statement Email
-
-```text
-Subject: {Month} {Year} Statement for {UnitName}
-
-Hi {TenantName},
-
-Your monthly statement for {Month} {Year} is ready.
-
-Total due: {TotalDue}
-Due date: {DueDate}
-
-The statement PDF is attached and includes rent, utility charges, discounts, and supporting bill details where applicable.
-
-Payment instructions:
-{PaymentInstructions}
-
-Thank you,
-{LandlordName}
-```
-
-### Receipt Email
-
-```text
-Subject: Rent Receipt for {Month} {Year}
-
-Hi {TenantName},
-
-Thank you. Your payment of {PaymentAmount} was recorded on {PaymentDate}.
-
-Your receipt is attached for your records.
-
-Thank you,
-{LandlordName}
-```
-
----
-
-## 17. PDF Templates
-
-### Statement PDF Must Include
-
-- Landlord/business name.
-- Property address.
-- Unit name.
-- Tenant name.
-- Statement number.
-- Statement month.
-- Issue date.
-- Due date.
-- Line items:
-  - Rent
-  - Utility charges
-  - Discounts
-  - Adjustments
-  - Previous balance
-- Total due.
-- Payment instructions.
-- Notes.
-- Supporting document references.
-
-### Receipt PDF Must Include
-
-- Receipt number.
-- Tenant name.
-- Property address.
-- Unit name.
-- Payment amount.
-- Payment date.
-- Payment method.
-- Statement paid.
-- Landlord/business name.
-- Notes.
-
----
-
-## 18. Security and Privacy Requirements
-
-The MVP handles sensitive tenant and landlord documents, so security should be part of the first build.
-
-### Required MVP Security
-
-- Authentication required for all dashboard routes.
-- Users can only access their own data.
-- File uploads must be private by default.
-- Use signed URLs for document access.
-- Validate all form inputs with Zod or equivalent.
-- Store money as integer cents, not floats.
-- Sanitize uploaded file names.
-- Restrict file types for upload.
-- Set file size limits.
-- Log statement send/payment events.
-- Never expose internal storage URLs publicly.
-
-### Recommended File Upload Restrictions
-
-Allowed file types:
-
-- PDF
-- JPG
-- PNG
-- HEIC if supported
-
-Suggested MVP max file size:
-
-- 10 MB per file
-
-### Audit Events to Track
-
-```text
-property.created
-unit.created
-tenant.created
-document.uploaded
-utility_bill.created
-statement.generated
-statement.sent
-statement.marked_paid
-receipt.generated
-maintenance.created
-```
-
----
-
-## 19. Important UX and Business Rules
+## 9. Business Rules (Implemented)
 
 ### Statement vs Receipt
 
-- A **statement** is generated before payment.
-- A **receipt** is generated only after payment is recorded.
-- Do not call an unpaid monthly bill a receipt.
+- **Statement** = request for payment (before or during payment).
+- **Receipt** = proof of payment (after payment recorded).
+- Never label an unpaid bill as a receipt.
 
-### Utility Proof
+### Prior balance roll-forward
 
-- Every utility charge should link to the original uploaded bill if available.
-- If no bill proof is attached, the app should display a warning before sending.
+Outstanding balance from the **prior month** rolls forward when prior statement status is:
 
-### Utility Split Rules
+- `sent`, `overdue`, or `partial`
 
-- Utility percentages should be saved at the unit level.
-- Monthly bills should reuse these percentages automatically.
-- Landlord can override a split for a specific bill.
-- If total split is under 100%, remaining balance is assumed to be landlord-paid.
-- If total split is over 100%, show an error or warning before saving.
+Does **not** roll forward from `draft` (tenant was never sent that statement).
 
-### Draft Before Send
+### Utility splits
 
-- Monthly statements should always be generated as drafts first.
-- The landlord must review before sending.
+```text
+unitAmountCents = round(billAmountCents × percentage / 100)
+```
 
-### Money Handling
+- Splits are recalculated in a transaction; remainder pennies go to the largest split so totals match the bill.
+- Percentages clamped to 0–100 on save.
+- Units with `includedInRent` or `tenantPays: false` are skipped.
 
-- Store all monetary values in cents.
-- Format money on the frontend only.
-- Use consistent currency formatting, default CAD.
+### Bill month matching
 
----
+Statements for month M include bills where `billMonth = M` and `billYear = Y`, with legacy fallback on billing period overlap (`src/lib/utility-bill-month.ts`).
 
-## 20. MVP Build Phases
+### Rent due date
 
-### Phase 1 — Foundation
+`rentDueDay` (1–31) is clamped to the last day of short months (e.g. Feb 31 → Feb 28).
 
-Build:
+### Active tenant selection
 
-- Auth
-- User account
-- Dashboard shell
-- Database schema
-- Property CRUD
-- Unit CRUD
-- Tenant CRUD
+When multiple active tenants exist (should not happen — creation is transactional), the oldest by `createdAt` is used.
 
-Deliverable:
+### Spreadsheet import safety
 
-> Landlord can create an account, add a property, add units, and add tenants.
+- Preview on server before import
+- User must confirm (`confirmed=true` in form data)
+- Replaces only `source: spreadsheet` bills for the selected utility type
+- 10 MB file size limit
 
 ---
 
-### Phase 2 — Utility Rules and Documents
+## 10. Server Actions Reference
 
-Build:
+Exported from `src/app/actions/index.ts`:
 
-- Utility rule CRUD
-- Document upload
-- Document list/filter
-- Attach documents to property/unit/tenant
-- Private file storage
-
-Deliverable:
-
-> Landlord can define utility percentages and upload/store documents.
-
----
-
-### Phase 3 — Utility Bills and Splits
-
-Build:
-
-- Utility bill upload form
-- Utility bill CRUD
-- Split calculation logic
-- Split preview UI
-- Link utility bill to document
-
-Deliverable:
-
-> Landlord can upload a bill and split it between units based on saved rules.
+| Module | Actions |
+|--------|---------|
+| `properties` | create/delete property, unit, tenant; utility rules; bills; xlsx import |
+| `statements` | generate, send, record payment, refresh, delete, auto-billing |
+| `settings` | profile, landlord settings |
+| `documents` | upload document, lease |
+| `communications` | LTB notice, announcement, maintenance receipt |
+| `maintenance` | create maintenance record |
+| `auth` | sign up, sign in, sign out |
 
 ---
 
-### Phase 4 — Statement Generation
+## 11. API Routes
 
-Build:
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/documents/[documentId]` | GET | Download document (auth required) |
+| `/api/stripe/checkout` | POST | Create checkout session |
+| `/api/stripe/webhook` | POST | Stripe payment completion |
+| `/api/cron/auto-billing` | POST | Monthly auto-generate + send (Bearer `CRON_SECRET`) |
 
-- Statement generation service
-- Draft statement creation
-- Statement detail page
-- Line items
-- PDF generation
-- Statement document storage
-
-Deliverable:
-
-> Landlord can generate monthly draft statements with rent and utility charges.
+All other mutations use Server Actions, not REST.
 
 ---
 
-### Phase 5 — Email, Payment, and Receipt
+## 12. Key Library Modules
 
-Build:
-
-- Email sending
-- Send statement action
-- Mark as paid
-- Payment record
-- Receipt generation
-- Receipt email
-
-Deliverable:
-
-> Landlord can send statements, record payments, and generate receipts.
-
----
-
-### Phase 6 — Maintenance
-
-Build:
-
-- Maintenance CRUD
-- Invoice upload
-- Maintenance filters
-- Property/unit maintenance history
-
-Deliverable:
-
-> Landlord can track repairs, maintenance costs, and invoices.
+| File | Responsibility |
+|------|----------------|
+| `statements.ts` | Split calculation, generation, refresh, roll-forward |
+| `parse-bills-xlsx.ts` | Spreadsheet parsing (server-only) |
+| `utility-bill-month.ts` | Bill month assignment, statement month matching |
+| `past-statements.ts` | Historical statement creation with initial payment |
+| `record-payment.ts` | Payment recording, receipt generation |
+| `auto-billing.ts` | Scheduled generate + email |
+| `overdue.ts` | Sync overdue status on dashboard/statements views |
+| `payment-status.ts` | UI payment status derivation |
+| `validation.ts` | Shared input validation (dates, rent day, percentages) |
+| `billing-constants.ts` | Month names, utility labels, year options |
+| `money.ts` | `formatMoney`, `parseMoneyToCents`, reasonableness checks |
+| `ownership.ts` | Authorization guards |
+| `session-token.ts` | HMAC session signing (requires `SESSION_SECRET` in prod) |
 
 ---
 
-## 21. Suggested MVP Acceptance Criteria
+## 13. Security
 
-### Property and Unit Setup
+### Implemented
 
-- User can create a property.
-- User can add multiple units to a property.
-- User can edit rent amount and due date per unit.
-- User can add tenant info to a unit.
+- Middleware protects dashboard routes (`src/middleware.ts`)
+- All queries scoped by `userId` via ownership helpers
+- Session cookies: `httpOnly`, `sameSite: lax`, `secure` in production
+- Production refuses default `SESSION_SECRET`
+- File upload type and size limits (`src/lib/files.ts`)
+- Money stored as integer cents
+- Spreadsheet import requires explicit confirmation
+- Cron endpoint requires `CRON_SECRET` bearer token
 
-### Utility Rules
+### Production TODO
 
-- User can add gas, water, electricity, internet, or other utility rules.
-- User can define tenant-paid percentage per utility.
-- User can mark a utility as included in rent.
-
-### Utility Bills
-
-- User can upload a bill PDF/image.
-- User can enter bill amount and billing period.
-- App calculates split amount per unit.
-- User can override a split.
-- Bill is saved as a document.
-
-### Statements
-
-- User can generate statements for a selected month.
-- Statement includes rent.
-- Statement includes utility split line items.
-- Statement includes discounts/adjustments if entered.
-- Statement shows total due.
-- Statement starts as draft.
-- User can send statement by email.
-- Statement PDF is stored in documents.
-
-### Payments and Receipts
-
-- User can mark statement as paid.
-- User can record payment method/date/reference.
-- App generates receipt PDF.
-- Receipt is stored in documents.
-
-### Maintenance
-
-- User can create maintenance record.
-- User can attach invoice/photo.
-- User can filter maintenance by property/unit/status.
+- Rate limiting on auth endpoints
+- Stronger password policy
+- Session expiry / invalidation on password change
+- Signed URLs for document access (currently path-based with auth check)
+- Real email provider with bounce handling
+- Move secrets to hosting provider env (never commit `.env`)
 
 ---
 
-## 22. Future V2 Features
+## 14. Performance Notes
 
-After MVP validation, consider:
+- `requireUser()` wrapped in `React.cache()` — one DB fetch per request
+- `xlsx` never shipped to client (import page ~3 kB vs ~123 kB before server-side preview)
+- `optimizePackageImports` for `lucide-react` and `date-fns`
+- Dashboard `loading.tsx` skeleton for perceived performance
+- Utility split writes use `createMany` inside transactions
 
-- OCR for utility bill amount and due date.
-- Tenant portal.
-- Online rent collection.
-- Automatic recurring monthly statement drafts.
-- Lease expiry reminders.
-- Maintenance reminders.
-- CRA/T776-ready reports.
-- Accountant export.
-- Multi-user/team access.
-- Vendor database.
-- Mobile app.
-- AI document tagging.
-- Email inbox integration to auto-import utility bills.
+### Known scaling limits
+
+- Statements list loads all rows (pagination not yet implemented)
+- `syncOverdueStatements` runs on dashboard/statements page load (consider cron-only)
+- SQLite single-writer — switch to PostgreSQL for concurrent users
 
 ---
 
-## 23. MVP Success Metrics
+## 15. Testing & Development
 
-Track these product metrics:
+```bash
+npm run lint          # ESLint
+npm run build         # Type check + production build
+npx tsx scripts/test-parse-bills.ts   # Spreadsheet parser regression tests
+```
 
-- Number of properties created.
-- Number of units created.
-- Number of utility rules created.
-- Number of bills uploaded.
-- Number of statements generated.
-- Number of statements sent.
-- Number of payments recorded.
-- Number of receipts generated.
-- Time from signup to first statement generated.
-- Percentage of users who return the next month.
+**Clean build cache** if you see `MODULE_NOT_FOUND` webpack errors:
 
-Primary activation event:
-
-> User generates and sends their first monthly statement.
-
-Primary retention event:
-
-> User returns the next month and generates another statement.
+```bash
+rm -rf .next && npm run dev
+```
 
 ---
 
-## 24. Recommended Development Priority
+## 16. Build Phases (Historical → Current)
 
-The developer should not start with the dashboard. Start with the data and core workflow.
+| Phase | Original plan | Current state |
+|-------|---------------|---------------|
+| 1 Foundation | Auth, property, unit, tenant | ✅ Complete |
+| 2 Utility rules + documents | Rules, upload, storage | ✅ Complete |
+| 3 Utility bills + splits | Upload, split calc | ✅ + spreadsheet import |
+| 4 Statement generation | Drafts, PDF, line items | ✅ Complete |
+| 5 Email, payment, receipt | Send, mark paid, receipt | ✅ + Stripe + partial |
+| 6 Maintenance | CRUD, invoices | ✅ Complete |
+| — Extras | — | Auto-billing, LTB notices, PWA, onboarding |
 
-Recommended order:
+---
 
-1. Database schema.
-2. Auth.
-3. Property CRUD.
-4. Unit CRUD.
-5. Tenant CRUD.
-6. Utility rules.
-7. Document upload.
-8. Utility bill upload.
-9. Utility bill split calculation.
-10. Draft statement generation.
-11. Statement PDF.
-12. Send statement email.
-13. Payment + receipt.
-14. Maintenance.
-15. Dashboard summary.
+## 17. Future Work (Prioritized)
 
-This keeps the MVP focused on the core value: accurate monthly tenant billing with organized supporting documents.
+### High impact
+
+1. **PostgreSQL** migration for production hosting
+2. **Statements pagination** + DB-level payment filters
+3. **Cloud file storage** (S3/R2)
+4. **Real email provider** integration
+5. **Split `statements.ts`** into smaller modules (splits, generation, roll-forward)
+
+### Medium
+
+6. Auth rate limiting and session expiry
+7. Auto-billing timezone (America/Toronto) for Canadian landlords
+8. `error.tsx` boundaries for friendly error pages
+9. Batch prior-balance queries during multi-unit generation
+10. Tenant portal (view statements, pay history)
+
+### Low / V2
+
+11. OCR for utility bill amounts
+12. CRA/T776-ready reports
+13. Multi-user team access
+14. Capacitor native app wrapper
+15. Green Button / utility API integration (removed from codebase; manual import remains)
+
+---
+
+## 18. MVP Success Metrics
+
+**Primary activation:** User generates and sends their first monthly statement.
+
+**Primary retention:** User returns next month and generates another statement.
+
+Track: properties, units, bills imported, statements generated/sent, payments recorded, time-to-first-statement.
+
+---
+
+## 19. Development Priority (For New Contributors)
+
+When adding features, follow existing patterns:
+
+1. Schema change in `prisma/schema.prisma` → `npm run db:push`
+2. Business logic in `src/lib/`
+3. Server action in `src/app/actions/` with `requireUser` + ownership check
+4. Page as Server Component in `src/app/(dashboard)/`
+5. Client component only if interactivity required
+6. Validation in `src/lib/validation.ts`
+7. Update this doc and `README.md` when behavior changes
+
+**Core workflow order** (still the right mental model):
+
+```text
+Property → Unit → Tenant → Utility rules → Bills → Statements → Send → Pay → Receipt
+```
+
+---
+
+## 20. Related Documentation
+
+- [`README.md`](./README.md) — setup, env vars, troubleshooting, workflows
+- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — UI tokens, components, page patterns

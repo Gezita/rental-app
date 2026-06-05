@@ -36,17 +36,31 @@ export async function signUpAction(formData: FormData) {
   redirect("/dashboard");
 }
 
+function safeRedirectPath(next: string | null): string {
+  if (!next || !next.startsWith("/") || next.startsWith("//")) {
+    return "/dashboard";
+  }
+  if (next.startsWith("/sign-in") || next.startsWith("/sign-up")) {
+    return "/dashboard";
+  }
+  return next;
+}
+
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
+  const next = String(formData.get("next") || "");
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    redirect("/sign-in?error=invalid");
+    const errorUrl = new URL("/sign-in", "http://local");
+    errorUrl.searchParams.set("error", "invalid");
+    if (next) errorUrl.searchParams.set("next", next);
+    redirect(`${errorUrl.pathname}${errorUrl.search}`);
   }
 
   await setSession(user.id);
-  redirect("/dashboard");
+  redirect(safeRedirectPath(next));
 }
 
 export async function signOutAction() {

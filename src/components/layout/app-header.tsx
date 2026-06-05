@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 import { LogOut, Menu, X, Zap } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { mobileNavSections } from "@/lib/navigation";
@@ -12,7 +14,14 @@ type AppHeaderProps = {
   userEmail: string;
 };
 
+function isNavActive(pathname: string, href: string, exact?: boolean) {
+  return exact
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function AppHeader({ userName, userEmail }: AppHeaderProps) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -75,12 +84,19 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
                   </p>
                   {section.items.map((item) => {
                     const Icon = navIconsByHref[item.href];
+                    const active = isNavActive(pathname, item.href, item.exact);
                     return (
                       <Link
                         key={`${section.label}-${item.label}`}
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-surface-muted"
+                        aria-current={active ? "page" : undefined}
+                        className={cn(
+                          "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+                          active
+                            ? "bg-primary-muted/60 font-medium text-primary-hover"
+                            : "text-foreground hover:bg-surface-muted"
+                        )}
                       >
                         {Icon ? <Icon className="h-4 w-4 text-muted" /> : null}
                         {item.label}
