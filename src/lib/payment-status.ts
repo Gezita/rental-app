@@ -14,6 +14,44 @@ export type PaymentStatusInfo = {
   variant: "default" | "success" | "warning" | "danger" | "secondary";
 };
 
+/** Labels used in badges, dashboard breakdown, and filters. */
+export const PAYMENT_STATUS_LABELS: Record<PaymentStatusKey, string> = {
+  draft: "Draft",
+  unpaid: "Unpaid",
+  overdue: "Overdue",
+  partial: "Partially paid",
+  pending_online: "Payment pending",
+  paid: "Paid",
+};
+
+/** Plural chip labels for filter UI where brevity helps. */
+export const PAYMENT_FILTER_CHIP_LABELS: Record<PaymentStatusKey, string> = {
+  draft: "Drafts",
+  unpaid: "Unpaid",
+  overdue: "Overdue",
+  partial: "Partially paid",
+  pending_online: "Payment pending",
+  paid: "Paid",
+};
+
+export const PAYMENT_BREAKDOWN_ORDER: PaymentStatusKey[] = [
+  "paid",
+  "unpaid",
+  "overdue",
+  "partial",
+  "pending_online",
+  "draft",
+];
+
+export const PAYMENT_STATUS_ACCENTS: Record<PaymentStatusKey, string> = {
+  paid: "text-success",
+  unpaid: "text-foreground",
+  overdue: "text-danger",
+  partial: "text-warning",
+  pending_online: "text-warning",
+  draft: "text-muted",
+};
+
 export function getPaymentStatus(statement: {
   status: StatementStatus;
   totalDueCents: number;
@@ -21,26 +59,26 @@ export function getPaymentStatus(statement: {
   stripeCheckoutSessionId?: string | null;
 }): PaymentStatusInfo {
   if (statement.status === "draft" || statement.status === "cancelled") {
-    return { key: "draft", label: "Draft", variant: "default" };
+    return { key: "draft", label: PAYMENT_STATUS_LABELS.draft, variant: "default" };
   }
 
   if (statement.status === "paid" || statement.paidAmountCents >= statement.totalDueCents) {
-    return { key: "paid", label: "Paid", variant: "success" };
+    return { key: "paid", label: PAYMENT_STATUS_LABELS.paid, variant: "success" };
   }
 
   if (statement.status === "partial" || (statement.paidAmountCents > 0 && statement.paidAmountCents < statement.totalDueCents)) {
-    return { key: "partial", label: "Partially paid", variant: "warning" };
+    return { key: "partial", label: PAYMENT_STATUS_LABELS.partial, variant: "warning" };
   }
 
   if (statement.stripeCheckoutSessionId && statement.paidAmountCents === 0) {
-    return { key: "pending_online", label: "Payment pending", variant: "warning" };
+    return { key: "pending_online", label: PAYMENT_STATUS_LABELS.pending_online, variant: "warning" };
   }
 
   if (statement.status === "overdue") {
-    return { key: "overdue", label: "Overdue", variant: "danger" };
+    return { key: "overdue", label: PAYMENT_STATUS_LABELS.overdue, variant: "danger" };
   }
 
-  return { key: "unpaid", label: "Unpaid", variant: "secondary" };
+  return { key: "unpaid", label: PAYMENT_STATUS_LABELS.unpaid, variant: "secondary" };
 }
 
 export function getOutstandingCents(statement: {

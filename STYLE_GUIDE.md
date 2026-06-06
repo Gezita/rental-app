@@ -1,10 +1,10 @@
-# Rentals Dashboard — Style Guide
+# zigglo — Style Guide
 
-A calm, warm interface for long reading sessions: soft neutrals, teal accents, and clear hierarchy.
+A calm, editorial interface for long billing sessions. **Zigglo** is the design language — see [`zigglo_ui_style_guide.md`](./zigglo_ui_style_guide.md) for the full token system, philosophy, and component specs.
 
 ## Principles
 
-1. **Easy on the eyes** — Warm stone backgrounds (`#f6f5f2`), not pure white pages or harsh slate grays.
+1. **Easy on the eyes** — Near-white canvas (`#f5f6f7`), white card surfaces, charcoal headings (`#121212`).
 2. **Scannable** — One primary metric per card; group related counts; use icons and color only where they add meaning.
 3. **Consistent** — Use shared UI components and CSS variables; avoid one-off hex values in pages.
 4. **Accessible** — Body text ≥ 14px; muted text still meets contrast on white; focus rings on interactive elements.
@@ -14,16 +14,16 @@ A calm, warm interface for long reading sessions: soft neutrals, teal accents, a
 
 | Role | Token | Hex | Usage |
 |------|--------|-----|--------|
-| Page background | `--background` | `#f6f5f2` | App shell, auth pages |
-| Text | `--foreground` | `#1c1917` | Headings, body |
-| Muted text | `--muted` | `#78716c` | Descriptions, labels |
+| Page background | `--background` | `#f8f7f2` | App shell, auth pages (logo cream) |
+| Text | `--foreground` | `#1e2328` | Headings, body (logo charcoal) |
+| Muted text | `--muted` | `#6b7280` | Descriptions, labels |
 | Surface | `--surface` | `#ffffff` | Cards, sidebar, header |
-| Border | `--border` | `#e7e5e4` | Card and input borders |
-| Primary | `--primary` | `#0d9488` | Buttons, links, active nav |
-| Primary hover | `--primary-hover` | `#0f766e` | Button hover |
+| Border | `--border` | `#e5e7eb` | Card and input borders |
+| Primary (Zigglo) | `--primary` | `#c46b41` | Buttons, links, active nav (terracotta) |
+| Primary hover | `--primary-hover` | `#a85a36` | Button hover |
 | Success | `--success` | `#059669` | Collected rent, paid status |
-| Warning | `--warning` | `#b45309` | Leases, partial payments |
-| Danger | `--danger` | `#be123c` | Overdue, destructive actions |
+| Warning | `--warning` | `#d97706` | Leases, partial payments |
+| Danger | `--danger` | `#dc2626` | Overdue, destructive actions |
 
 Semantic backgrounds: `--primary-muted`, `--success-muted`, `--warning-muted`, `--danger-muted` for alerts and tinted cards.
 
@@ -58,14 +58,15 @@ Use `tabular-nums` on money and counts. Format currency with `formatMoney()` fro
 | `Card` | `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` |
 | `Badge` | `default`, `secondary`, `success`, `warning`, `danger` |
 | `Alert` | `default`, `error`, `warning`, `info` |
-| `Input`, `Label`, `Select` | Form fields — use with server actions |
+| `Input`, `Label`, `Select` | Form fields — `Select` uses `pr-10` + chevron icon for arrow spacing |
 
 ### Layout
 
 | Component | Location | Notes |
 |-----------|----------|--------|
 | `DashboardShell` | `layout/dashboard-shell.tsx` | Sidebar, header, auth gate |
-| `NavLink` | `layout/nav-link.tsx` | Active state for sidebar |
+| `BrandLogo` | `layout/brand-logo.tsx` | App mark + wordmark |
+| `NavLink` | `layout/nav-link.tsx` | Active state with left brand bar |
 | `PageBackNav` | `layout/page-back-nav.tsx` | Breadcrumb-style back link |
 | `AppHeader` | `layout/app-header.tsx` | Mobile menu |
 
@@ -93,14 +94,14 @@ Use `tabular-nums` on money and counts. Format currency with `formatMoney()` fro
 
 ## Cards
 
-- Default: white surface, `border-border`, soft shadow, `rounded-xl`.
+- Default: white surface, `border-border`, soft shadow, `rounded-2xl`.
 - Stat cards: optional left accent bar (`accent`: `primary` | `success` | `warning` | `danger` | `neutral`).
 - Info banners: `Alert` or tinted `Card` with semantic border/background tokens.
-- List rows: `rounded-lg border border-border bg-surface-muted/40 px-4 py-3` with hover state.
+- List rows: `rounded-xl border border-border bg-surface px-4 py-3` with hover tint.
 
 ## Buttons
 
-- **Primary:** Teal fill — main actions (Add Property, Save, Replace and save).
+- **Primary:** Zigglo indigo fill, `rounded-xl` — main actions (Add Property, Save).
 - **Outline:** White with border — secondary actions (Generate Statements, View).
 - **Ghost:** Navigation and low-emphasis controls.
 - **Destructive:** Rose — delete only.

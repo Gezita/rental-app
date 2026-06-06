@@ -1,4 +1,4 @@
-const CACHE_NAME = "rentals-dashboard-v1";
+const CACHE_NAME = "zigglo-v1";
 const PRECACHE_URLS = ["/dashboard", "/offline"];
 
 self.addEventListener("install", (event) => {

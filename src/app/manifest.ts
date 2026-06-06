@@ -2,28 +2,28 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Rentals Dashboard",
-    short_name: "Rentals",
+    name: "zigglo",
+    short_name: "zigglo",
     description: "Landlord billing and document management",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    background_color: "#f8fafc",
-    theme_color: "#2563eb",
+    background_color: "#f8f7f2",
+    theme_color: "#c46b41",
     categories: ["business", "finance", "productivity"],
     icons: [
       {
-        src: "/icons/icon.svg",
-        sizes: "any",
-        type: "image/svg+xml",
+        src: "/brand/zigglo-icon.png",
+        sizes: "512x512",
+        type: "image/png",
         purpose: "any",
       },
       {
-        src: "/apple-icon",
-        sizes: "180x180",
+        src: "/brand/zigglo-icon.png",
+        sizes: "512x512",
         type: "image/png",
-        purpose: "any",
+        purpose: "maskable",
       },
     ],
   };

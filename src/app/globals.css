@@ -1,36 +1,49 @@
 @import "tailwindcss";
 
-/* ─── Rentals design tokens (see STYLE_GUIDE.md) ─── */
+/* ─── Zigglo design tokens (see zigglo_ui_style_guide.md) ─── */
 :root {
-  --background: #f6f5f2;
-  --foreground: #1c1917;
+  /* Palette — from brand logo */
+  --zigglo-cream: #f8f7f2;
+  --zigglo-charcoal: #1e2328;
+  --zigglo-charcoal-muted: #3d454d;
+  --zigglo-gray-100: #e8e6e1;
+  --zigglo-gray-500: #6b7280;
+  --zigglo-brand-50: #fdf4ef;
+  --zigglo-brand-100: #f5e0d4;
+  --zigglo-brand-500: #c46b41;
+  --zigglo-brand-600: #a85a36;
+  --zigglo-brand-700: #8c4a2c;
+
+  /* Semantic */
+  --background: var(--zigglo-cream);
+  --foreground: var(--zigglo-charcoal);
 
   --surface: #ffffff;
-  --surface-muted: #faf9f7;
-  --border: #e7e5e4;
-  --border-subtle: #f0eeeb;
+  --surface-muted: #faf9f6;
+  --border: var(--zigglo-gray-100);
+  --border-subtle: #f0eeea;
 
-  --muted: #78716c;
-  --muted-foreground: #57534e;
+  --muted: var(--zigglo-gray-500);
+  --muted-foreground: var(--zigglo-charcoal-muted);
 
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
+  --primary: var(--zigglo-brand-500);
+  --primary-hover: var(--zigglo-brand-600);
   --primary-foreground: #ffffff;
-  --primary-muted: #ccfbf1;
+  --primary-muted: var(--zigglo-brand-50);
 
-  --accent: #d97706;
-  --accent-muted: #fef3c7;
+  --accent: var(--zigglo-brand-500);
+  --accent-muted: var(--zigglo-brand-100);
 
   --success: #059669;
   --success-muted: #d1fae5;
-  --warning: #b45309;
+  --warning: #d97706;
   --warning-muted: #fef3c7;
-  --danger: #be123c;
-  --danger-muted: #ffe4e6;
+  --danger: #dc2626;
+  --danger-muted: #fee2e2;
 
-  --shadow-sm: 0 1px 2px rgb(28 25 23 / 0.04);
-  --shadow-md: 0 4px 12px rgb(28 25 23 / 0.06);
-  --shadow-lg: 0 12px 32px rgb(28 25 23 / 0.08);
+  --shadow-sm: 0 1px 2px rgb(30 35 40 / 0.05);
+  --shadow-md: 0 4px 16px rgb(30 35 40 / 0.07);
+  --shadow-lg: 0 12px 32px rgb(30 35 40 / 0.09);
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -77,4 +90,16 @@ a {
 ::selection {
   background: var(--primary-muted);
   color: var(--primary-hover);
+}
+
+/* Native select — hide default arrow (custom chevron in Select component) */
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+
+select::-ms-expand {
+  display: none;
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
 
 export default async function PropertiesPage({
@@ -26,15 +27,15 @@ export default async function PropertiesPage({
   return (
     <div className="space-y-6">
       <PageBackNav />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Properties</h1>
-          <p className="text-muted">Manage your rental properties and units</p>
-        </div>
-        <Link href="/properties/new">
-          <Button>Add Property</Button>
-        </Link>
-      </div>
+      <PageHeader
+        title="Properties"
+        description="Manage your rental properties and units"
+        actions={
+          <Link href="/properties/new">
+            <Button>Add Property</Button>
+          </Link>
+        }
+      />
 
       {deleted && <FlashAlert clearParams={["deleted"]}>Property deleted.</FlashAlert>}
 
@@ -52,7 +53,7 @@ export default async function PropertiesPage({
                   <Th>Name</Th>
                   <Th>Address</Th>
                   <Th>Units</Th>
-                  <Th>Monthly Rent</Th>
+                  <Th>Scheduled rent</Th>
                   <Th></Th>
                 </tr>
               </thead>

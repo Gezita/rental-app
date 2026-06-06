@@ -155,12 +155,16 @@ export async function getPriorMonthOutstandingCents(
 }
 
 type StatementLineItemInput = {
-  type: "rent" | "utility" | "previous_balance";
+  type: "rent" | "utility" | "previous_balance" | "other";
   description: string;
   amountCents: number;
   sourceUtilityBillId?: string;
   sourceDocumentId?: string;
   calculationNote?: string;
+};
+
+export type StatementGenerationExtras = {
+  extraLineItems?: StatementLineItemInput[];
 };
 
 async function buildStatementLineItems(
@@ -171,7 +175,8 @@ async function buildStatementLineItems(
   },
   month: number,
   year: number,
-  utilityBills: Awaited<ReturnType<typeof loadUtilityBillsForStatementMonth>>
+  utilityBills: Awaited<ReturnType<typeof loadUtilityBillsForStatementMonth>>,
+  extras?: StatementGenerationExtras
 ) {
   const priorOutstanding = await getPriorMonthOutstandingCents(unit.id, month, year);
   const previousBalanceCents = priorOutstanding.amountCents;
@@ -214,18 +219,30 @@ async function buildStatementLineItems(
     });
   }
 
-  const totalDueCents = unit.rentAmountCents + utilityTotalCents + previousBalanceCents;
+  let adjustmentTotalCents = 0;
+  for (const extra of extras?.extraLineItems ?? []) {
+    lineItems.push(extra);
+    if (extra.type === "other") {
+      adjustmentTotalCents += extra.amountCents;
+    } else if (extra.type === "utility") {
+      utilityTotalCents += extra.amountCents;
+    }
+  }
+
+  const totalDueCents =
+    unit.rentAmountCents + utilityTotalCents + previousBalanceCents + adjustmentTotalCents;
 
   return {
     lineItems,
     rentAmountCents: unit.rentAmountCents,
     utilityTotalCents,
+    adjustmentTotalCents,
     previousBalanceCents,
     totalDueCents,
   };
 }
 
-async function loadUtilityBillsForStatementMonth(
+export async function loadUtilityBillsForStatementMonth(
   propertyId: string,
   month: number,
   year: number
@@ -268,7 +285,10 @@ export async function generateStatementForUnit(
   unitId: string,
   month: number,
   year: number,
-  options?: { utilityBills?: Awaited<ReturnType<typeof loadUtilityBillsForStatementMonth>> }
+  options?: {
+    utilityBills?: Awaited<ReturnType<typeof loadUtilityBillsForStatementMonth>>;
+    extras?: StatementGenerationExtras;
+  }
 ) {
   const unit = await prisma.unit.findFirst({
     where: { id: unitId, property: { userId } },
@@ -291,7 +311,7 @@ export async function generateStatementForUnit(
     options?.utilityBills ??
     (await loadUtilityBillsForStatementMonth(unit.propertyId, month, year));
 
-  const totals = await buildStatementLineItems(unit, month, year, utilityBills);
+  const totals = await buildStatementLineItems(unit, month, year, utilityBills, options?.extras);
   const dueDate = rentDueDate(year, month, unit.rentDueDay);
 
   return prisma.statement.create({
@@ -305,6 +325,7 @@ export async function generateStatementForUnit(
       dueDate,
       rentAmountCents: totals.rentAmountCents,
       utilityTotalCents: totals.utilityTotalCents,
+      adjustmentTotalCents: totals.adjustmentTotalCents,
       previousBalanceCents: totals.previousBalanceCents,
       totalDueCents: totals.totalDueCents,
       status: "draft",
@@ -360,7 +381,8 @@ export async function refreshStatement(userId: string, statementId: string) {
     statement.unit,
     statement.statementMonth,
     statement.statementYear,
-    utilityBills
+    utilityBills,
+    undefined
   );
 
   await prisma.statementLineItem.deleteMany({ where: { statementId } });
@@ -392,6 +414,7 @@ export async function refreshStatement(userId: string, statementId: string) {
       dueDate,
       rentAmountCents: totals.rentAmountCents,
       utilityTotalCents: totals.utilityTotalCents,
+      adjustmentTotalCents: totals.adjustmentTotalCents,
       previousBalanceCents: totals.previousBalanceCents,
       totalDueCents: totals.totalDueCents,
       status: nextStatus,
@@ -416,7 +439,11 @@ export async function generateStatementsForProperty(
   propertyId: string,
   month: number,
   year: number,
-  unitIds?: string[]
+  unitIds?: string[],
+  options?: {
+    extrasByUnitId?: Record<string, StatementGenerationExtras>;
+    defaultExtras?: StatementGenerationExtras;
+  }
 ) {
   const property = await prisma.property.findFirst({
     where: { id: propertyId, userId },
@@ -441,8 +468,12 @@ export async function generateStatementsForProperty(
   for (const unit of property.units) {
     if (selectedUnitIds && !selectedUnitIds.has(unit.id)) continue;
 
+    const extras =
+      options?.extrasByUnitId?.[unit.id] ?? options?.defaultExtras;
+
     const statement = await generateStatementForUnit(userId, unit.id, month, year, {
       utilityBills,
+      extras,
     });
     if (statement) statements.push(statement);
   }

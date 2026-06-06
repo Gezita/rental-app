@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Rentals Dashboard — macOS installer
+# zigglo — macOS installer
 set -euo pipefail
 
 APP_ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
@@ -86,7 +86,7 @@ build_app() {
 
 main() {
   echo ""
-  echo "  Rentals Dashboard — macOS Install"
+  echo "  zigglo — macOS Install"
   echo "  =================================="
   echo "  Location: $APP_ROOT"
   echo ""
@@ -108,7 +108,7 @@ main() {
   echo -e "${GREEN}Install complete.${NC}"
   echo ""
   echo "  Start the app:"
-  echo "    • Double-click  Rentals Dashboard  on your Desktop"
+    echo "    • Double-click  zigglo  on your Desktop"
   echo "    • Or double-click  start.command  in this folder"
   echo "    • Or run:        npm run dev"
   echo ""

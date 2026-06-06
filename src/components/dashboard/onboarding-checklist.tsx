@@ -22,7 +22,7 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
   if (allDone) return null;
 
   return (
-    <Card className="border-primary/20 bg-primary-muted/20">
+    <Card className="border-primary/15 bg-gradient-to-br from-surface via-surface to-primary-muted/50">
       <CardHeader>
         <CardTitle>Get started</CardTitle>
         <CardDescription>
@@ -37,10 +37,10 @@ export function OnboardingChecklist({ steps }: OnboardingChecklistProps) {
               <Link
                 href={step.href}
                 className={cn(
-                  "flex items-start gap-3 rounded-lg border px-4 py-3 text-sm transition-colors",
+                  "flex items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors",
                   step.done
                     ? "border-border-subtle bg-surface-muted/40 text-muted"
-                    : "border-border bg-surface hover:border-primary/30 hover:bg-surface-muted/60"
+                    : "border-border bg-surface shadow-[var(--shadow-sm)] hover:border-primary/25 hover:bg-primary-muted/30"
                 )}
               >
                 {step.done ? (

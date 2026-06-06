@@ -2,12 +2,13 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { uploadDocumentAction } from "@/app/actions/app";
+import { DocumentsTable } from "@/components/documents-table";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { SubmitButton } from "@/components/submit-button";
 import type { DocumentCategory } from "@prisma/client";
 import {
-  Badge,
   Button,
   Card,
   CardContent,
@@ -16,10 +17,6 @@ import {
   Input,
   Label,
   Select,
-  Table,
-  Th,
-  Td,
-  Tr,
 } from "@/components/ui";
 
 export default async function DocumentsPage({
@@ -27,6 +24,7 @@ export default async function DocumentsPage({
 }: {
   searchParams: Promise<{
     uploaded?: string;
+    deleted?: string;
     error?: string;
     category?: string;
     propertyId?: string;
@@ -69,17 +67,34 @@ export default async function DocumentsPage({
   return (
     <div className="space-y-6">
       <PageBackNav />
-      <div>
-        <h1 className="text-2xl font-bold">Documents</h1>
-        <p className="text-muted">All leases, bills, statements, and receipts</p>
-      </div>
+      <PageHeader
+        title="Documents"
+        description="All leases, bills, statements, and receipts"
+      />
 
       {params.uploaded && (
         <FlashAlert clearParams={["uploaded"]}>Document uploaded successfully.</FlashAlert>
       )}
-      {params.error && (
+      {params.deleted && (
+        <FlashAlert clearParams={["deleted"]}>
+          {params.deleted === "1"
+            ? "Document deleted."
+            : `${params.deleted} documents deleted.`}
+        </FlashAlert>
+      )}
+      {params.error === "file" && (
         <FlashAlert variant="error" clearParams={["error"]}>
           Please select a file to upload.
+        </FlashAlert>
+      )}
+      {params.error === "none_selected" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Select at least one document to delete.
+        </FlashAlert>
+      )}
+      {params.error === "not_found" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Document not found or already deleted.
         </FlashAlert>
       )}
 
@@ -104,6 +119,7 @@ export default async function DocumentsPage({
                 <option value="maintenance_invoice">Maintenance Invoice</option>
                 <option value="maintenance_receipt">Maintenance Receipt</option>
                 <option value="ltb_notice">LTB Notice</option>
+                <option value="tax_report">Tax Report</option>
                 <option value="photo">Photo</option>
                 <option value="other">Other</option>
               </Select>
@@ -147,6 +163,7 @@ export default async function DocumentsPage({
                 <option value="maintenance_invoice">Maintenance Invoice</option>
                 <option value="maintenance_receipt">Maintenance Receipt</option>
                 <option value="ltb_notice">LTB Notice</option>
+                <option value="tax_report">Tax Report</option>
                 <option value="photo">Photo</option>
                 <option value="other">Other</option>
               </Select>
@@ -183,36 +200,15 @@ export default async function DocumentsPage({
           {documents.length === 0 ? (
             <p className="text-sm text-muted">No documents match your filters.</p>
           ) : (
-            <Table>
-              <thead>
-                <tr>
-                  <Th>File</Th>
-                  <Th>Category</Th>
-                  <Th>Property</Th>
-                  <Th>Date</Th>
-                  <Th></Th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => (
-                  <Tr key={doc.id}>
-                    <Td>{doc.fileName}</Td>
-                    <Td>
-                      <Badge variant="secondary">{doc.category.replace("_", " ")}</Badge>
-                    </Td>
-                    <Td>{doc.property?.name || "—"}</Td>
-                    <Td>{doc.createdAt.toLocaleDateString()}</Td>
-                    <Td>
-                      <Link href={`/api/documents/${doc.id}`} target="_blank">
-                        <Button variant="outline" size="sm">
-                          Download
-                        </Button>
-                      </Link>
-                    </Td>
-                  </Tr>
-                ))}
-              </tbody>
-            </Table>
+            <DocumentsTable
+              documents={documents.map((doc) => ({
+                id: doc.id,
+                fileName: doc.fileName,
+                category: doc.category,
+                propertyName: doc.property?.name ?? null,
+                createdAt: doc.createdAt.toISOString(),
+              }))}
+            />
           )}
         </CardContent>
       </Card>

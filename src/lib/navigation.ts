@@ -9,6 +9,7 @@ export const dashboardNavItems: NavItem[] = [
   { href: "/properties", label: "Properties" },
   { href: "/utility-bills", label: "Utility Bills" },
   { href: "/statements", label: "Statements" },
+  { href: "/reports/tax", label: "Tax Reports" },
   { href: "/notices", label: "LTB Notices" },
   { href: "/documents", label: "Documents" },
   { href: "/maintenance", label: "Maintenance" },

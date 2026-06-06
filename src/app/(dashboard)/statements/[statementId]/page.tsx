@@ -129,6 +129,37 @@ export default async function StatementDetailPage({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Total due</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {formatMoney(statement.totalDueCents)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Paid</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-success">
+              {formatMoney(statement.paidAmountCents)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-5">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted">Balance</p>
+            <p
+              className={`mt-1 text-2xl font-semibold tabular-nums ${
+                outstanding > 0 ? "text-warning" : "text-muted"
+              }`}
+            >
+              {outstanding > 0 ? formatMoney(outstanding) : "—"}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       {canRefresh && (
         <Card className="border-primary/25 bg-primary-muted/30">
           <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
@@ -213,7 +244,18 @@ export default async function StatementDetailPage({
               <tbody>
                 {statement.lineItems.map((item) => (
                   <Tr key={item.id}>
-                    <Td>{item.description}</Td>
+                    <Td>
+                      <div>{item.description}</div>
+                      {item.sourceDocumentId && (
+                        <Link
+                          href={`/api/documents/${item.sourceDocumentId}`}
+                          target="_blank"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          View attachment
+                        </Link>
+                      )}
+                    </Td>
                     <Td className="text-sm text-muted">{item.calculationNote || "—"}</Td>
                     <Td className="text-right">{formatMoney(item.amountCents)}</Td>
                   </Tr>

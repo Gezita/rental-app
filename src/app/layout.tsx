@@ -11,15 +11,15 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Rentals Dashboard",
-    template: "%s | Rentals Dashboard",
+    default: "zigglo",
+    template: "%s | zigglo",
   },
   description: "Landlord billing and document management",
-  applicationName: "Rentals Dashboard",
+  applicationName: "zigglo",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Rentals",
+    title: "zigglo",
   },
   formatDetection: {
     telephone: false,
@@ -31,8 +31,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#2563eb" },
-    { media: "(prefers-color-scheme: dark)", color: "#1d4ed8" },
+    { media: "(prefers-color-scheme: light)", color: "#c46b41" },
+    { media: "(prefers-color-scheme: dark)", color: "#a85a36" },
   ],
   width: "device-width",
   initialScale: 1,

@@ -47,6 +47,36 @@ export async function createPropertyAction(formData: FormData) {
   redirect(`/properties/${property.id}`);
 }
 
+export async function updatePropertyFinancesAction(propertyId: string, formData: FormData) {
+  const user = await requireUser();
+  await requireProperty(user.id, propertyId);
+
+  const parseOptionalMoney = (key: string) => {
+    const raw = String(formData.get(key) || "").trim();
+    if (!raw) return null;
+    const cents = parseMoneyToCents(raw);
+    return cents >= 0 ? cents : null;
+  };
+
+  const insuranceProvider = String(formData.get("insuranceProvider") || "").trim() || null;
+  const taxRollNumber = String(formData.get("taxRollNumber") || "").trim() || null;
+
+  await prisma.property.update({
+    where: { id: propertyId },
+    data: {
+      annualPropertyTaxCents: parseOptionalMoney("annualPropertyTax"),
+      annualInsurancePremiumCents: parseOptionalMoney("annualInsurancePremium"),
+      mortgageInterestAnnualCents: parseOptionalMoney("mortgageInterestAnnual"),
+      insuranceProvider,
+      taxRollNumber,
+    },
+  });
+
+  revalidatePath(`/properties/${propertyId}`);
+  revalidatePath("/reports/tax");
+  redirect(`/properties/${propertyId}?saved=finances`);
+}
+
 export async function deletePropertyAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
   const property = await requireProperty(user.id, propertyId);
@@ -137,11 +167,13 @@ export async function deleteUnitAction(unitId: string, formData: FormData) {
 export async function createTenantAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await requireUnit(user.id, unitId);
+  const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
 
   const firstName = String(formData.get("firstName") || "").trim();
   const lastName = String(formData.get("lastName") || "").trim();
   const email = String(formData.get("email") || "").trim() || undefined;
   const phone = String(formData.get("phone") || "").trim() || undefined;
+  const sendWelcomeEmail = formData.get("sendWelcomeEmail") === "on";
 
   if (!firstName || !lastName) {
     redirect(`/properties/${unit.propertyId}/units/${unitId}?error=tenant`);
@@ -154,6 +186,16 @@ export async function createTenantAction(unitId: string, formData: FormData) {
         "Invalid move-in date"
       )
     : new Date();
+
+  const property = await prisma.property.findUnique({ where: { id: unit.propertyId } });
+  if (!property) throw new Error("Property not found");
+
+  const utilityRules = await prisma.utilityRule.findMany({
+    where: { unitId },
+    orderBy: { utilityType: "asc" },
+  });
+
+  let newTenantId = "";
 
   await prisma.$transaction(async (tx) => {
     const departing = await tx.tenant.findMany({
@@ -186,6 +228,7 @@ export async function createTenantAction(unitId: string, formData: FormData) {
         isActive: true,
       },
     });
+    newTenantId = tenant.id;
 
     await tx.lease.create({
       data: {
@@ -199,9 +242,82 @@ export async function createTenantAction(unitId: string, formData: FormData) {
     });
   });
 
+  const { buildUtilityTerms } = await import("@/lib/lease-wizard");
+  const { generateOnboardingPdf } = await import("@/lib/pdf");
+  const landlordName = settings?.landlordName || user.name || user.email;
+  const propertyAddress = [property.addressLine1, property.city, property.province]
+    .filter(Boolean)
+    .join(", ");
+
+  const onboardingDoc = await generateOnboardingPdf({
+    userId: user.id,
+    propertyId: property.id,
+    unitId: unit.id,
+    tenantId: newTenantId,
+    landlordName,
+    landlordEmail: user.email,
+    propertyName: property.name,
+    propertyAddress,
+    unitName: unit.name,
+    tenantName: `${firstName} ${lastName}`,
+    tenantEmail: email,
+    tenantPhone: phone,
+    moveInDate,
+    rentAmountCents: unit.rentAmountCents,
+    rentDueDay: unit.rentDueDay,
+    paymentInstructions: settings?.paymentInstructions ?? undefined,
+    utilityLines: buildUtilityTerms(utilityRules),
+  });
+
+  if (sendWelcomeEmail) {
+    if (!email) {
+      redirect(
+        `/properties/${unit.propertyId}/units/${unitId}?saved=newtenant&documentId=${onboardingDoc.id}&error=no_email`
+      );
+    }
+
+    const { sendEmail } = await import("@/lib/email");
+    const { buildOnboardingEmailContent } = await import("@/lib/tenant-communications");
+    const { formatMoney } = await import("@/lib/money");
+    const emailContent = buildOnboardingEmailContent({
+      tenantName: firstName,
+      propertyName: property.name,
+      unitName: unit.name,
+      propertyAddress,
+      moveInDate: moveInDate.toLocaleDateString("en-CA"),
+      rentAmount: formatMoney(unit.rentAmountCents),
+      rentDueDay: unit.rentDueDay,
+      landlordName,
+      landlordEmail: user.email,
+    });
+
+    await sendEmail({
+      to: email,
+      subject: emailContent.subject,
+      body: emailContent.text,
+      html: emailContent.html,
+      attachmentName: onboardingDoc.fileName,
+    });
+
+    await prisma.document.update({
+      where: { id: onboardingDoc.id },
+      data: { sentToTenantAt: new Date() },
+    });
+
+    revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
+    revalidatePath(`/properties/${unit.propertyId}`);
+    revalidatePath("/documents");
+    redirect(
+      `/properties/${unit.propertyId}/units/${unitId}?saved=newtenant&documentId=${onboardingDoc.id}&emailed=1`
+    );
+  }
+
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
   revalidatePath(`/properties/${unit.propertyId}`);
-  redirect(`/properties/${unit.propertyId}/units/${unitId}?saved=newtenant`);
+  revalidatePath("/documents");
+  redirect(
+    `/properties/${unit.propertyId}/units/${unitId}?saved=newtenant&documentId=${onboardingDoc.id}`
+  );
 }
 
 export async function updateTenantAction(tenantId: string, formData: FormData) {

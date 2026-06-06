@@ -3,11 +3,14 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { syncOverdueStatements } from "@/lib/overdue";
-import { getPaymentStatus, type PaymentStatusKey } from "@/lib/payment-status";
+import { getPaymentStatus, getOutstandingCents, type PaymentStatusKey } from "@/lib/payment-status";
+import { aggregateStatementStats } from "@/lib/statement-stats";
 import { MONTH_NAMES } from "@/lib/statements";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
+import { StatCard } from "@/components/dashboard/stat-card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { StatementsPaymentFilter } from "@/components/statements-payment-filter";
 import { StatementsUnitFilter } from "@/components/statements-unit-filter";
 import {
@@ -52,6 +55,10 @@ export default async function StatementsPage({
 
   await syncOverdueStatements(user.id);
 
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
   const [allStatements, userUnits] = await Promise.all([
     prisma.statement.findMany({
       where: {
@@ -80,6 +87,11 @@ export default async function StatementsPage({
     ? allStatements.filter((statement) => getPaymentStatus(statement).key === paymentFilter)
     : allStatements;
 
+  const stats = aggregateStatementStats(allStatements);
+  const { outstandingCents, collectedCents, counts } = stats;
+  const draftCount = counts.draft;
+  const overdueCount = counts.overdue;
+
   const unitFilterOptions = userUnits
     .filter((unit) => unit._count.statements > 0)
     .map((unit) => ({
@@ -94,17 +106,20 @@ export default async function StatementsPage({
   return (
     <div className="space-y-6">
       <PageBackNav />
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Statements</h1>
-          <p className="text-muted">Monthly tenant billing statements</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/statements/generate">
-            <Button>Generate statements</Button>
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Statements"
+        description="Monthly tenant billing — rent, utilities, and balances"
+        actions={
+          <>
+            <Link href={`/statements/generate?month=${currentMonth}&year=${currentYear}`}>
+              <Button variant="outline">Generate this month</Button>
+            </Link>
+            <Link href="/statements/generate">
+              <Button>Generate statements</Button>
+            </Link>
+          </>
+        }
+      />
 
       {generated && (
         <FlashAlert clearParams={["generated", "units"]}>
@@ -117,12 +132,43 @@ export default async function StatementsPage({
         <FlashAlert clearParams={["deleted"]}>Statement deleted.</FlashAlert>
       )}
 
+      {totalStatementCount > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Outstanding (unpaid statements)"
+            value={formatMoney(outstandingCents)}
+            accent={outstandingCents > 0 ? "danger" : "success"}
+            valueClassName={outstandingCents > 0 ? "text-danger" : "text-success"}
+            href={outstandingCents > 0 ? "/statements?payment=unpaid" : undefined}
+          />
+          <StatCard
+            label="Collected (lifetime)"
+            value={formatMoney(collectedCents)}
+            accent="success"
+            valueClassName="text-success"
+            href="/statements?payment=paid"
+          />
+          <StatCard
+            label="Draft statements"
+            value={String(draftCount)}
+            href={draftCount > 0 ? "/statements?payment=draft" : undefined}
+          />
+          <StatCard
+            label="Overdue"
+            value={String(overdueCount)}
+            accent={overdueCount > 0 ? "danger" : "neutral"}
+            valueClassName={overdueCount > 0 ? "text-danger" : undefined}
+            href={overdueCount > 0 ? "/statements?payment=overdue" : undefined}
+          />
+        </div>
+      )}
+
       <Card>
         <CardHeader className="space-y-4">
           <CardTitle>
             {activeUnit
               ? `${activeUnit.property.name} — ${activeUnit.name}`
-              : "All Statements"}
+              : "All statements"}
           </CardTitle>
           <StatementsPaymentFilter activePayment={paymentFilter} activeUnitId={unitId} />
           {unitFilterOptions.length > 1 && (
@@ -155,48 +201,65 @@ export default async function StatementsPage({
             <Table>
               <thead>
                 <tr>
-                  <Th>Unit</Th>
-                  <Th>Statement #</Th>
-                  <Th>Property</Th>
                   <Th>Tenant</Th>
+                  <Th>Unit</Th>
                   <Th>Period</Th>
-                  <Th>Total</Th>
-                  <Th>Workflow</Th>
-                  <Th>Payment</Th>
+                  <Th className="text-right">Total</Th>
+                  <Th className="text-right">Paid</Th>
+                  <Th className="text-right">Balance</Th>
+                  <Th>Status</Th>
                   <Th></Th>
                 </tr>
               </thead>
               <tbody>
-                {statements.map((s) => (
-                  <Tr key={s.id}>
-                    <Td className="font-medium">{s.unit.name}</Td>
-                    <Td className="text-muted-foreground">{s.statementNumber}</Td>
-                    <Td>{s.unit.property.name}</Td>
-                    <Td>
-                      {s.tenant.firstName} {s.tenant.lastName}
-                    </Td>
-                    <Td>
-                      {MONTH_NAMES[s.statementMonth - 1]} {s.statementYear}
-                    </Td>
-                    <Td>{formatMoney(s.totalDueCents)}</Td>
-                    <Td className="capitalize text-muted-foreground">{s.status}</Td>
-                    <Td>
-                      <PaymentStatusBadge
-                        status={s.status}
-                        totalDueCents={s.totalDueCents}
-                        paidAmountCents={s.paidAmountCents}
-                        stripeCheckoutSessionId={s.stripeCheckoutSessionId}
-                      />
-                    </Td>
-                    <Td>
-                      <Link href={`/statements/${s.id}`}>
-                        <Button variant="outline" size="sm">
-                          View
-                        </Button>
-                      </Link>
-                    </Td>
-                  </Tr>
-                ))}
+                {statements.map((s) => {
+                  const balance = getOutstandingCents(s);
+                  const ps = getPaymentStatus(s);
+                  return (
+                    <Tr key={s.id}>
+                      <Td>
+                        <p className="font-medium">
+                          {s.tenant.firstName} {s.tenant.lastName}
+                        </p>
+                        <p className="text-xs text-muted">{s.unit.property.name}</p>
+                      </Td>
+                      <Td>{s.unit.name}</Td>
+                      <Td>
+                        {MONTH_NAMES[s.statementMonth - 1]} {s.statementYear}
+                      </Td>
+                      <Td className="text-right tabular-nums">{formatMoney(s.totalDueCents)}</Td>
+                      <Td className="text-right tabular-nums text-success">
+                        {s.paidAmountCents > 0 ? formatMoney(s.paidAmountCents) : "—"}
+                      </Td>
+                      <Td
+                        className={`text-right font-medium tabular-nums ${
+                          balance > 0
+                            ? ps.key === "overdue"
+                              ? "text-danger"
+                              : "text-warning"
+                            : "text-muted"
+                        }`}
+                      >
+                        {balance > 0 ? formatMoney(balance) : "—"}
+                      </Td>
+                      <Td>
+                        <PaymentStatusBadge
+                          status={s.status}
+                          totalDueCents={s.totalDueCents}
+                          paidAmountCents={s.paidAmountCents}
+                          stripeCheckoutSessionId={s.stripeCheckoutSessionId}
+                        />
+                      </Td>
+                      <Td>
+                        <Link href={`/statements/${s.id}`}>
+                          <Button variant="outline" size="sm">
+                            View
+                          </Button>
+                        </Link>
+                      </Td>
+                    </Tr>
+                  );
+                })}
               </tbody>
             </Table>
           )}

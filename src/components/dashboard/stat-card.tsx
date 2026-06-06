@@ -24,6 +24,7 @@ const iconWrap: Record<StatAccent, string> = {
 type StatCardProps = {
   label: string;
   value: React.ReactNode;
+  hint?: React.ReactNode;
   icon?: LucideIcon;
   accent?: StatAccent;
   valueClassName?: string;
@@ -34,6 +35,7 @@ type StatCardProps = {
 export function StatCard({
   label,
   value,
+  hint,
   icon: Icon,
   accent = "neutral",
   valueClassName,
@@ -48,8 +50,8 @@ export function StatCard({
         className
       )}
     >
-      <div className={cn("absolute left-0 top-0 h-full w-1", accentBar[accent])} />
-      <div className="flex items-start justify-between gap-3 p-5 pl-6">
+      <div className={cn("absolute left-0 top-0 h-full w-[3px] rounded-l-2xl", accentBar[accent])} />
+      <div className="flex items-start justify-between gap-3 p-5 pl-7">
         <div className="min-w-0 flex-1 space-y-1">
           <p className="text-sm font-medium text-muted">{label}</p>
           <p
@@ -60,11 +62,12 @@ export function StatCard({
           >
             {value}
           </p>
+          {hint && <p className="text-xs text-muted">{hint}</p>}
         </div>
         {Icon && (
           <div
             className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
               iconWrap[accent]
             )}
           >

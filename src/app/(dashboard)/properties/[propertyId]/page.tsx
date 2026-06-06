@@ -1,12 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { deletePropertyAction } from "@/app/actions/app";
+import { CircleDollarSign, Home, Shield, Wrench } from "lucide-react";
+import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions/app";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
+import { StatCard } from "@/components/dashboard/stat-card";
 import {
   Badge,
   Button,
@@ -15,6 +17,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Input,
+  Label,
   Table,
   Th,
   Td,
@@ -26,7 +30,7 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ error?: string; deleted?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string; saved?: string }>;
 }) {
   const { propertyId } = await params;
   const query = await searchParams;
@@ -40,10 +44,12 @@ export default async function PropertyDetailPage({
           tenants: { where: { isActive: true } },
         },
       },
-      utilityBills: { orderBy: { billingPeriodStart: "desc" }, take: 5 },
-      maintenanceRecords: {
-        where: { status: { in: ["planned", "in_progress"] } },
-        take: 5,
+      _count: {
+        select: {
+          maintenanceRecords: {
+            where: { status: { in: ["planned", "in_progress"] } },
+          },
+        },
       },
     },
   });
@@ -51,12 +57,21 @@ export default async function PropertyDetailPage({
   if (!property) notFound();
 
   const monthlyRent = property.units.reduce((s, u) => s + u.rentAmountCents, 0);
+  const occupiedUnits = property.units.filter((u) => u.tenants.length > 0).length;
+  const vacantUnits = property.units.length - occupiedUnits;
+  const openMaintenanceCount = property._count.maintenanceRecords;
   const deleteProperty = deletePropertyAction.bind(null, propertyId);
+  const updateFinances = updatePropertyFinancesAction.bind(null, propertyId);
 
   return (
     <div className="space-y-6">
       <PageBackNav parent={{ href: "/properties", label: "Properties" }} />
 
+      {query.saved === "finances" && (
+        <FlashAlert clearParams={["saved"]}>
+          Property finances saved. These amounts feed your annual T776 tax summary.
+        </FlashAlert>
+      )}
       {query.deleted === "unit" && (
         <FlashAlert clearParams={["deleted"]}>Unit deleted.</FlashAlert>
       )}
@@ -87,32 +102,135 @@ export default async function PropertyDetailPage({
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Units</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{property.units.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Monthly Rent</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatMoney(monthlyRent)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Open Maintenance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{property.maintenanceRecords.length}</p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Units"
+          value={property.units.length}
+          hint={`${occupiedUnits} occupied · ${vacantUnits} vacant`}
+          icon={Home}
+          accent="primary"
+        />
+        <StatCard
+          label="Scheduled rent (all units)"
+          value={formatMoney(monthlyRent)}
+          icon={CircleDollarSign}
+          accent="primary"
+        />
+        <StatCard
+          label="Open maintenance"
+          value={openMaintenanceCount}
+          icon={Wrench}
+          accent={openMaintenanceCount > 0 ? "warning" : "neutral"}
+          href={`/maintenance?status=open&propertyId=${propertyId}`}
+        />
+        <StatCard
+          label="Tax & insurance"
+          value={
+            property.annualPropertyTaxCents || property.annualInsurancePremiumCents
+              ? formatMoney(
+                  (property.annualPropertyTaxCents ?? 0) +
+                    (property.annualInsurancePremiumCents ?? 0)
+                )
+              : "Not set"
+          }
+          hint={
+            property.annualPropertyTaxCents || property.annualInsurancePremiumCents
+              ? [
+                  property.annualPropertyTaxCents
+                    ? `${formatMoney(property.annualPropertyTaxCents)} tax`
+                    : null,
+                  property.annualInsurancePremiumCents
+                    ? `${formatMoney(property.annualInsurancePremiumCents)} insurance`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Add below for T776"
+          }
+          icon={Shield}
+          accent="neutral"
+        />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Property finances</CardTitle>
+          <CardDescription>
+            Annual amounts for CRA Form T776 (lines 9180, 9200, 8710). Used in Tax Reports.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form action={updateFinances} className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="annualPropertyTax">Annual property tax ($)</Label>
+              <Input
+                id="annualPropertyTax"
+                name="annualPropertyTax"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 4200.00"
+                defaultValue={
+                  property.annualPropertyTaxCents
+                    ? (property.annualPropertyTaxCents / 100).toFixed(2)
+                    : ""
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="taxRollNumber">Tax roll / account # (optional)</Label>
+              <Input
+                id="taxRollNumber"
+                name="taxRollNumber"
+                defaultValue={property.taxRollNumber ?? ""}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="annualInsurancePremium">Annual insurance ($)</Label>
+              <Input
+                id="annualInsurancePremium"
+                name="annualInsurancePremium"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 1800.00"
+                defaultValue={
+                  property.annualInsurancePremiumCents
+                    ? (property.annualInsurancePremiumCents / 100).toFixed(2)
+                    : ""
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="insuranceProvider">Insurer (optional)</Label>
+              <Input
+                id="insuranceProvider"
+                name="insuranceProvider"
+                defaultValue={property.insuranceProvider ?? ""}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="mortgageInterestAnnual">Annual mortgage interest ($)</Label>
+              <Input
+                id="mortgageInterestAnnual"
+                name="mortgageInterestAnnual"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="T776 line 8710"
+                defaultValue={
+                  property.mortgageInterestAnnualCents
+                    ? (property.mortgageInterestAnnualCents / 100).toFixed(2)
+                    : ""
+                }
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Button type="submit">Save finances</Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">

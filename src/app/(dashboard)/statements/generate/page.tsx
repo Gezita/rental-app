@@ -30,6 +30,8 @@ export default async function GenerateStatementsPage({
   searchParams: Promise<{
     propertyId?: string;
     unitId?: string;
+    month?: string;
+    year?: string;
     generated?: string;
     error?: string;
   }>;
@@ -49,8 +51,12 @@ export default async function GenerateStatementsPage({
   });
 
   const now = new Date();
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
+  const currentMonth = params.month
+    ? parseInt(params.month, 10)
+    : now.getMonth() + 1;
+  const currentYear = params.year
+    ? parseInt(params.year, 10)
+    : now.getFullYear();
   const years = yearOptions();
 
   const propertyForUnit = params.unitId
@@ -123,8 +129,9 @@ export default async function GenerateStatementsPage({
             </CardHeader>
             <CardContent>
               <p className="mb-4 text-sm text-muted">
-                Choose the property, month, and which units need a statement. Property utility bills
-                are split across units using each unit&apos;s utility rules.
+                Choose the property, month, and which units need a statement. Attach utility bill
+                documents, add optional extra costs, and split property bills across units using each
+                unit&apos;s utility rules.
               </p>
               <GenerateStatementsForm
                 action={generateStatementsAction}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Double-click to start Rentals Dashboard and open it in your browser.
+# Double-click to start zigglo and open it in your browser.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -32,7 +32,7 @@ PORT="${PORT:-3000}"
 URL="http://localhost:${PORT}"
 
 echo ""
-echo -e "${GREEN}Rentals Dashboard${NC}"
+echo -e "${GREEN}zigglo${NC}"
 echo "  Starting at ${URL}"
 echo "  Press Ctrl+C in this window to stop."
 echo ""
