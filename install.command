@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Double-click this file in Finder to install Rentals Dashboard on macOS.
+# Double-click this file in Finder to install zigglo on macOS.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"

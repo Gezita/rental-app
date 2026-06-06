@@ -500,5 +500,6 @@ Property → Unit → Tenant → Utility rules → Bills → Statements → Send
 
 ## 20. Related Documentation
 
+- [`zigglo_ui_style_guide.md`](./zigglo_ui_style_guide.md) — Zigglo design language (primary UI reference)
 - [`README.md`](./README.md) — setup, env vars, troubleshooting, workflows
-- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — UI tokens, components, page patterns
+- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — Rentals UI tokens, components, page patterns

@@ -60,7 +60,7 @@ export function buildStatementEmailContent(params: {
     landlordName: params.landlordName,
     landlordEmail: params.landlordEmail,
     bodyHtml,
-    footerNote: "This message was sent from your landlord's Rentals Dashboard account.",
+    footerNote: "This message was sent from your landlord's zigglo account.",
   });
 
   const text = [
@@ -291,6 +291,62 @@ export function buildPartialPaymentEmailContent(params: {
     `Partial payment of ${params.paymentAmount} received on ${params.paymentDate}.`,
     `Statement total: ${params.totalDue}`,
     `Remaining balance: ${params.outstandingBalance}`,
+    "",
+    params.landlordName,
+  ].join("\n");
+
+  return { subject, text, html };
+}
+
+export function buildOnboardingEmailContent(params: {
+  tenantName: string;
+  propertyName: string;
+  unitName: string;
+  propertyAddress: string;
+  moveInDate: string;
+  rentAmount: string;
+  rentDueDay: number;
+  landlordName: string;
+  landlordEmail?: string;
+}): StatementEmailContent {
+  const subject = `Welcome to ${params.unitName} — move-in ${params.moveInDate}`;
+  const bodyHtml = [
+    emailParagraph(`Hi ${params.tenantName},`),
+    emailParagraph(
+      `Welcome! We are pleased to confirm your move-in to ${params.unitName} at ${params.propertyName}. Please find your onboarding information attached as a PDF — it covers rent, utilities, and how to reach us.`
+    ),
+    emailInfoTable(
+      [
+        emailInfoRow("Property", params.propertyName),
+        emailInfoRow("Unit", params.unitName),
+        emailInfoRow("Address", params.propertyAddress),
+        emailInfoRow("Move-in date", params.moveInDate),
+        emailInfoRow("Monthly rent", params.rentAmount),
+        emailInfoRow("Rent due day", `Day ${params.rentDueDay} of each month`),
+      ].join("")
+    ),
+    emailParagraph(
+      "A formal lease agreement will be provided separately where required. Monthly statements will be sent for rent and any shared utility charges."
+    ),
+    emailParagraph("Reply to this email if you have questions before move-in day."),
+  ].join("");
+
+  const html = renderEmailLayout({
+    title: "Welcome to your new home",
+    preheader: `Move-in ${params.moveInDate} — ${params.unitName}`,
+    landlordName: params.landlordName,
+    landlordEmail: params.landlordEmail,
+    bodyHtml,
+  });
+
+  const text = [
+    `Hi ${params.tenantName},`,
+    "",
+    `Welcome to ${params.unitName} at ${params.propertyName}.`,
+    `Move-in: ${params.moveInDate}`,
+    `Rent: ${params.rentAmount} due on day ${params.rentDueDay} of each month.`,
+    "",
+    "Your onboarding package is attached.",
     "",
     params.landlordName,
   ].join("\n");

@@ -1,4 +1,4 @@
-# Rentals Dashboard
+# zigglo
 
 Landlord billing and document management for small portfolios (1–20 units). Built for Ontario landlords who split shared utilities, generate monthly tenant statements, and keep leases, bills, and maintenance records in one place.
 
@@ -8,7 +8,7 @@ Landlord billing and document management for small portfolios (1–20 units). Bu
 
 1. **Install:** double-click `install.command` in Finder  
    (If macOS blocks it: right-click → **Open** → **Open** once.)
-2. **Run:** double-click **Rentals Dashboard** on your Desktop (or `start.command`) — opens [http://localhost:3000](http://localhost:3000)
+2. **Run:** double-click **zigglo** on your Desktop (or `start.command`) — opens [http://localhost:3000](http://localhost:3000)
 
 The installer checks Node.js (installs via Homebrew if needed), creates `.env`, installs dependencies, seeds the database, builds the app, and adds a Desktop shortcut.
 
@@ -242,5 +242,6 @@ Check that amounts are in dollars (e.g. `125.50`, not cents). Excel numbers are 
 
 ## Related Docs
 
+- [`zigglo_ui_style_guide.md`](./zigglo_ui_style_guide.md) — Zigglo design language (tokens, components, layout)
+- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — Rentals UI conventions and component map
 - [`LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md`](./LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md) — product spec, data model, business rules, and implementation status
-- [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — UI tokens, components, and conventions

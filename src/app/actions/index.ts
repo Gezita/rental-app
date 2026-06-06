@@ -1,5 +1,6 @@
 export {
   createPropertyAction,
+  updatePropertyFinancesAction,
   deletePropertyAction,
   createUnitAction,
   updateUnitAction,
@@ -30,7 +31,16 @@ export { createMaintenanceAction } from "./maintenance";
 
 export { updateSettingsAction, updateProfileAction } from "./settings";
 
-export { uploadDocumentAction, uploadLeaseAction } from "./documents";
+export {
+  uploadDocumentAction,
+  uploadLeaseAction,
+  deleteDocumentAction,
+  deleteDocumentsAction,
+} from "./documents";
+
+export { generateLeaseAction } from "./leases";
+
+export { exportT776ReportAction } from "./tax";
 
 export {
   uploadLtbNoticeAction,

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Create a macOS Desktop shortcut (Rentals Dashboard.app) that launches the dev server.
+# Create a macOS Desktop shortcut (zigglo.app) that launches the dev server.
 set -euo pipefail
 
 APP_ROOT="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
-APP_NAME="Rentals Dashboard"
-BUNDLE_ID="com.gezita.rentals-dashboard"
+APP_NAME="zigglo"
+BUNDLE_ID="com.gezita.zigglo"
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -37,11 +37,11 @@ cat > "${SHORTCUT}/Contents/Info.plist" <<'PLIST'
   <key>CFBundleExecutable</key>
   <string>launcher</string>
   <key>CFBundleIdentifier</key>
-  <string>com.gezita.rentals-dashboard</string>
+  <string>com.gezita.zigglo</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>Rentals Dashboard</string>
+  <string>zigglo</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
@@ -60,12 +60,12 @@ cat > "${SHORTCUT}/Contents/MacOS/launcher" <<LAUNCHER
 APP_ROOT='${APP_ROOT}'
 
 if [[ ! -f "\${APP_ROOT}/.env" ]]; then
-  osascript -e 'display alert "Rentals Dashboard" message "Run install.command in the project folder first." as warning' 2>/dev/null || true
+  osascript -e 'display alert "zigglo" message "Run install.command in the project folder first." as warning' 2>/dev/null || true
   exit 1
 fi
 
 if [[ ! -d "\${APP_ROOT}/node_modules" ]]; then
-  osascript -e 'display alert "Rentals Dashboard" message "Dependencies missing. Run install.command first." as warning' 2>/dev/null || true
+  osascript -e 'display alert "zigglo" message "Dependencies missing. Run install.command first." as warning' 2>/dev/null || true
   exit 1
 fi
 

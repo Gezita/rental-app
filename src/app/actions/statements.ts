@@ -7,6 +7,16 @@ import { prisma } from "@/lib/db";
 import { parseMoneyToCents } from "@/lib/money";
 import { requireStatement } from "@/lib/ownership";
 
+export async function getUtilityBillsForMonthAction(
+  propertyId: string,
+  month: number,
+  year: number
+) {
+  const user = await requireUser();
+  const { getUtilityBillsForGenerate } = await import("@/lib/statement-extras");
+  return getUtilityBillsForGenerate(user.id, propertyId, month, year);
+}
+
 export async function generateStatementsAction(formData: FormData) {
   const user = await requireUser();
   const propertyId = String(formData.get("propertyId") || "");
@@ -14,23 +24,53 @@ export async function generateStatementsAction(formData: FormData) {
   const year = parseInt(String(formData.get("year") || new Date().getFullYear()), 10);
   const unitIds = formData.getAll("unitIds").map(String).filter(Boolean);
 
-  const { generateStatementsForProperty } = await import("@/lib/statements");
-  const statements = await generateStatementsForProperty(
-    user.id,
-    propertyId,
-    month,
-    year,
-    unitIds
-  );
+  try {
+    const {
+      prepareUtilityBillsFromForm,
+      parseExtraCostsFromForm,
+      extraCostsToLineItems,
+    } = await import("@/lib/statement-extras");
 
-  if (statements.length === 0) {
-    redirect("/statements/generate?error=No%20statements%20created.%20Select%20units%20with%20active%20tenants.");
+    await prepareUtilityBillsFromForm(user.id, propertyId, month, year, formData);
+
+    const primaryUnitId = unitIds.length === 1 ? unitIds[0] : undefined;
+    const extraCosts = await parseExtraCostsFromForm(
+      user.id,
+      propertyId,
+      primaryUnitId,
+      formData
+    );
+    const extraLineItems = extraCostsToLineItems(extraCosts);
+    const defaultExtras =
+      extraLineItems.length > 0 ? { extraLineItems } : undefined;
+
+    const { generateStatementsForProperty } = await import("@/lib/statements");
+    const statements = await generateStatementsForProperty(
+      user.id,
+      propertyId,
+      month,
+      year,
+      unitIds,
+      { defaultExtras }
+    );
+
+    if (statements.length === 0) {
+      redirect(
+        "/statements/generate?error=No%20statements%20created.%20Select%20units%20with%20active%20tenants."
+      );
+    }
+
+    const unitNames = statements.map((statement) => statement.unit.name).join(", ");
+
+    revalidatePath("/statements");
+    revalidatePath("/statements/generate");
+    redirect(`/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
+  } catch (error) {
+    const message = encodeURIComponent(
+      error instanceof Error ? error.message : "Could not generate statements"
+    );
+    redirect(`/statements/generate?error=${message}`);
   }
-
-  const unitNames = statements.map((statement) => statement.unit.name).join(", ");
-
-  revalidatePath("/statements");
-  redirect(`/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
 }
 
 export async function createPastStatementAction(formData: FormData) {

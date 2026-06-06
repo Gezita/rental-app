@@ -1,15 +1,12 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import type { PaymentStatusKey } from "@/lib/payment-status";
+import { PAYMENT_FILTER_CHIP_LABELS, type PaymentStatusKey } from "@/lib/payment-status";
 
 const PAYMENT_FILTERS: { key: PaymentStatusKey | "all"; label: string }[] = [
   { key: "all", label: "All statuses" },
-  { key: "draft", label: "Drafts" },
-  { key: "unpaid", label: "Unpaid" },
-  { key: "overdue", label: "Overdue" },
-  { key: "partial", label: "Partial" },
-  { key: "pending_online", label: "Pending online" },
-  { key: "paid", label: "Paid" },
+  ...(
+    ["draft", "unpaid", "overdue", "partial", "pending_online", "paid"] as PaymentStatusKey[]
+  ).map((key) => ({ key, label: PAYMENT_FILTER_CHIP_LABELS[key] })),
 ];
 
 type StatementsPaymentFilterProps = {

@@ -97,7 +97,7 @@ export default async function SettingsPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Automatic Invoice Sender</CardTitle>
+            <CardTitle>Automatic Statement Sender</CardTitle>
             <CardDescription>
               On the 1st of each month (or your chosen day), generates statements for all
               properties and emails tenants who have an email on file using a professional HTML

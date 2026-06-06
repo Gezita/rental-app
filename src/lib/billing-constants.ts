@@ -29,6 +29,9 @@ export const SPREADSHEET_UTILITY_OPTIONS = [
   { value: "electricity", label: "Electricity" },
 ] as const;
 
+/** Gas, water, and electricity shown on statement generate (attach / quick-add). */
+export const STATEMENT_UTILITY_TYPES = ["gas", "water", "electricity"] as const;
+
 export function yearOptions(around = new Date().getFullYear()) {
   return [around - 2, around - 1, around, around + 1];
 }

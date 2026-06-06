@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { Zap } from "lucide-react";
 import { signInAction } from "@/app/actions/auth";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { SubmitButton } from "@/components/submit-button";
 import { FlashAlert } from "@/components/flash-alert";
 import {
@@ -22,12 +22,10 @@ export default async function SignInPage({
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-muted">
-            <Zap className="h-6 w-6 text-primary" />
-          </span>
-          <p className="text-sm font-medium text-muted">Rentals Dashboard</p>
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center gap-4 text-center">
+          <BrandLogo href="/sign-in" size="lg" variant="full" />
+          <p className="text-sm text-muted">Landlord billing and document management</p>
         </div>
         <Card className="shadow-[var(--shadow-md)]">
           <CardHeader>
@@ -70,7 +68,7 @@ export default async function SignInPage({
               No account?{" "}
               <Link
                 href="/sign-up"
-                className="font-medium text-primary-hover underline underline-offset-2"
+                className="font-semibold text-primary hover:text-primary-hover underline-offset-2 hover:underline"
               >
                 Sign up
               </Link>

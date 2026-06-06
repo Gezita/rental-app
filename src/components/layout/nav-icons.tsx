@@ -2,6 +2,7 @@
 
 import {
   Building2,
+  FileSpreadsheet,
   FileText,
   Home,
   Receipt,
@@ -18,6 +19,7 @@ export const navIconsByHref: Record<string, LucideIcon> = {
   "/properties": Building2,
   "/utility-bills": Zap,
   "/statements": Receipt,
+  "/reports/tax": FileSpreadsheet,
   "/notices": ScrollText,
   "/documents": FileText,
   "/maintenance": Wrench,

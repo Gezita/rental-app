@@ -12,6 +12,7 @@ import {
   uploadLeaseAction,
 } from "@/app/actions/app";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
+import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import {
   Alert,
@@ -35,7 +36,12 @@ export default async function UnitDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string; unitId: string }>;
-  searchParams: Promise<{ saved?: string; error?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    error?: string;
+    documentId?: string;
+    emailed?: string;
+  }>;
 }) {
   const { propertyId, unitId } = await params;
   const query = await searchParams;
@@ -80,11 +86,13 @@ export default async function UnitDetailPage({
       : query.saved === "tenant"
         ? "Tenant information updated."
         : query.saved === "lease"
-          ? "Lease document uploaded."
+          ? "Lease PDF generated and saved to documents."
           : query.saved === "moved"
             ? "Tenant marked as moved out. You can onboard a new tenant below."
             : query.saved === "newtenant"
-              ? "New tenant added and previous tenant marked as moved out."
+              ? query.emailed
+                ? "New tenant added. Onboarding package emailed and saved to documents."
+                : "New tenant added. Onboarding package saved to documents."
               : null;
 
   const today = new Date().toISOString().split("T")[0];
@@ -96,7 +104,28 @@ export default async function UnitDetailPage({
         <h1 className="text-2xl font-bold">{unit.name}</h1>
       </div>
 
-      {savedMessage && <Alert>{savedMessage}</Alert>}
+      {savedMessage && (query.saved === "lease" || query.saved === "newtenant") && query.documentId ? (
+        <FlashAlert
+          clearParams={["saved", "documentId", "emailed"]}
+          variant={query.error === "no_email" ? "warning" : undefined}
+        >
+          {savedMessage}{" "}
+          <Link
+            href={`/api/documents/${query.documentId}`}
+            target="_blank"
+            className="font-medium underline"
+          >
+            View PDF
+          </Link>
+          {query.error === "no_email" && (
+            <span className="block mt-1">
+              Welcome email was not sent — add the tenant&apos;s email address first.
+            </span>
+          )}
+        </FlashAlert>
+      ) : (
+        savedMessage && <Alert>{savedMessage}</Alert>
+      )}
       {query.error === "lease" && (
         <Alert variant="error">Please select a lease file to upload.</Alert>
       )}
@@ -152,7 +181,17 @@ export default async function UnitDetailPage({
                 )}
               </>
             ) : (
-              <p className="text-sm text-muted">No lease uploaded</p>
+              <p className="text-sm text-muted">No lease on file</p>
+            )}
+            {tenant && (
+              <Link
+                href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}
+                className="mt-3 inline-block"
+              >
+                <Button size="sm">
+                  {activeLease?.document ? "Regenerate lease" : "Create lease"}
+                </Button>
+              </Link>
             )}
           </CardContent>
         </Card>
@@ -271,7 +310,8 @@ export default async function UnitDetailPage({
               <CardTitle>Onboard new tenant</CardTitle>
               <CardDescription>
                 Adds a new tenant and automatically marks {tenant.firstName} as moved out on
-                the move-in date. Use this when turnover happens in one step.
+                the move-in date. Generates a welcome onboarding PDF and can email it to the new
+                tenant.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -302,7 +342,18 @@ export default async function UnitDetailPage({
                     required
                   />
                 </div>
-                <div className="flex items-end md:col-span-2">
+                <div className="flex items-center gap-2 md:col-span-2">
+                  <input
+                    id="sendWelcomeEmail"
+                    name="sendWelcomeEmail"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  <Label htmlFor="sendWelcomeEmail" className="font-normal">
+                    Email onboarding package to new tenant
+                  </Label>
+                </div>
+                <div className="md:col-span-2">
                   <Button type="submit">Add new tenant</Button>
                 </div>
               </form>
@@ -315,7 +366,10 @@ export default async function UnitDetailPage({
         <Card>
           <CardHeader>
             <CardTitle>Onboard new tenant</CardTitle>
-            <CardDescription>No active tenant — add someone moving in.</CardDescription>
+            <CardDescription>
+              No active tenant — add someone moving in. A welcome onboarding PDF is created
+              automatically.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form action={addTenant} className="grid gap-4 md:grid-cols-2">
@@ -344,6 +398,17 @@ export default async function UnitDetailPage({
                   defaultValue={today}
                   required
                 />
+              </div>
+              <div className="flex items-center gap-2 md:col-span-2">
+                <input
+                  id="sendWelcomeEmailEmpty"
+                  name="sendWelcomeEmail"
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                />
+                <Label htmlFor="sendWelcomeEmailEmpty" className="font-normal">
+                  Email onboarding package to new tenant
+                </Label>
               </div>
               <div className="md:col-span-2">
                 <Button type="submit">Add tenant</Button>
@@ -375,10 +440,19 @@ export default async function UnitDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Upload Lease</CardTitle>
+          <CardTitle>Lease documents</CardTitle>
+          <CardDescription>
+            Generate a lease from your utility rules, or upload a signed PDF (e.g. Ontario Standard
+            Lease).
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form action={uploadLease} className="flex flex-wrap items-end gap-4" encType="multipart/form-data">
+        <CardContent className="space-y-4">
+          {tenant && (
+            <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
+              <Button>Open lease wizard</Button>
+            </Link>
+          )}
+          <form action={uploadLease} className="flex flex-wrap items-end gap-4 border-t border-border pt-4" encType="multipart/form-data">
             <div className="min-w-[240px] flex-1 space-y-2">
               <Label htmlFor="file">Lease PDF or Image</Label>
               <Input id="file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
@@ -387,7 +461,9 @@ export default async function UnitDetailPage({
               <Label htmlFor="leaseEndDate">Lease end date (for reminders)</Label>
               <Input id="leaseEndDate" name="leaseEndDate" type="date" />
             </div>
-            <Button type="submit">Upload Lease</Button>
+            <Button type="submit" variant="outline">
+              Upload signed lease
+            </Button>
           </form>
           {!tenant && (
             <p className="mt-2 text-xs text-muted">Add a tenant first to attach the lease record.</p>

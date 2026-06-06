@@ -23,12 +23,18 @@ export function NavLink({ href, label, exact }: NavLinkProps) {
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+        "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
         active
           ? "bg-primary-muted text-primary-hover"
           : "text-muted-foreground hover:bg-surface-muted hover:text-foreground"
       )}
     >
+      {active && (
+        <span
+          className="absolute bottom-2 left-0 top-2 w-[3px] rounded-full bg-primary"
+          aria-hidden
+        />
+      )}
       {Icon ? (
         <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted")} />
       ) : null}

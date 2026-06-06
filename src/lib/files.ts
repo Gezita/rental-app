@@ -1,4 +1,4 @@
-import { mkdir, writeFile, readFile } from "fs/promises";
+import { mkdir, writeFile, readFile, unlink } from "fs/promises";
 import path from "path";
 import { prisma } from "./db";
 import type { DocumentCategory } from "@prisma/client";
@@ -62,4 +62,9 @@ export async function saveUploadedFile(
 export async function readDocumentFile(filePath: string) {
   const absolutePath = path.join(process.cwd(), filePath);
   return readFile(absolutePath);
+}
+
+export async function deleteDocumentFile(filePath: string) {
+  const absolutePath = path.join(process.cwd(), filePath);
+  await unlink(absolutePath).catch(() => undefined);
 }

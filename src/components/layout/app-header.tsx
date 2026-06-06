@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { LogOut, Menu, X, Zap } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { mobileNavSections } from "@/lib/navigation";
+import { BrandLogo } from "./brand-logo";
 import { navIconsByHref } from "./nav-icons";
 
 type AppHeaderProps = {
@@ -45,22 +46,14 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
   }, []);
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface/90 px-4 backdrop-blur-md lg:hidden sm:px-6">
-      <Link
-        href="/dashboard"
-        className="flex items-center gap-2 rounded-lg px-1 py-1 text-foreground transition-colors hover:bg-surface-muted"
-      >
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-muted">
-          <Zap className="h-4 w-4 text-primary" />
-        </span>
-        <span className="font-semibold tracking-tight">Rentals</span>
-      </Link>
+    <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur-md lg:hidden sm:px-6">
+      <BrandLogo size="sm" variant="icon" />
 
       <div className="relative" ref={menuRef}>
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-muted-foreground shadow-[var(--shadow-sm)] transition-colors hover:bg-surface-muted hover:text-foreground"
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
         >
@@ -68,7 +61,7 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
         </button>
 
         {open && (
-          <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-lg)]">
+          <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-lg)]">
             <div className="border-b border-border-subtle bg-surface-muted/50 px-4 py-3">
               <p className="truncate text-sm font-medium text-foreground">
                 {userName || "Landlord"}

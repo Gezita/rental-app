@@ -44,6 +44,14 @@ model Property {
   postalCode   String?
   country      String   @default("Canada")
   notes        String?
+  /// Annual municipal property tax (CRA T776 line 9180)
+  annualPropertyTaxCents      Int?
+  /// Annual property insurance premium (CRA T776 line 9200)
+  annualInsurancePremiumCents Int?
+  /// Annual mortgage interest paid (CRA T776 line 8710)
+  mortgageInterestAnnualCents Int?
+  insuranceProvider           String?
+  taxRollNumber               String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -106,6 +114,9 @@ model Lease {
   rentAmountCents Int
   rentDueDay      Int
   status          LeaseStatus @default(active)
+  securityDepositCents Int?
+  lastMonthRentDeposit Boolean @default(false)
+  additionalTerms String?
   notes           String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
@@ -351,6 +362,7 @@ enum DocumentCategory {
   maintenance_invoice
   maintenance_receipt
   ltb_notice
+  tax_report
   notice
   photo
   other
