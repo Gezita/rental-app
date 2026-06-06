@@ -4,6 +4,8 @@ Landlord billing and document management for small portfolios (1–20 units). Bu
 
 ## Quick Start
 
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Docker Engine on Linux) and Node.js 20+
+
 ### macOS (double-click)
 
 1. **Install:** double-click `install.command` in Finder  
@@ -14,17 +16,46 @@ The installer checks Node.js (installs via Homebrew if needed), creates `.env`, 
 
 To recreate the shortcut later, double-click `create-shortcut.command`.
 
-### Terminal
+### Terminal (macOS or Linux)
 
+If you don't have Node.js 20:
 ```bash
-npm install
-npm run db:setup
-npm run dev
+make install-node   # installs fnm (Node version manager)
+# restart your terminal, then:
+fnm install 20 && fnm default 20
+```
+
+Then:
+```bash
+cp .env.example .env
+make setup   # starts Postgres, installs deps, pushes schema, seeds demo data
+make dev     # starts Postgres + the app
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
 **Demo account:** `demo@landlord.app` / `demo1234`
+
+### Without Make
+
+```bash
+cp .env.example .env
+docker compose up -d   # start Postgres
+npm install
+npm run db:setup       # push schema + seed demo data
+npm run dev
+```
+
+### Common commands
+
+| Command | What it does |
+|---------|-------------|
+| `make install-node` | Install fnm (Node version manager) |
+| `make setup` | First-time setup (DB + deps + schema + seed) |
+| `make dev` | Start DB + app |
+| `make db-reset` | Wipe and reseed the database |
+| `make studio` | Open Prisma Studio at http://localhost:5555 |
+| `make db-down` | Stop the database container |
 
 ## Features
 
@@ -63,7 +94,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | Layer | Choice |
 |-------|--------|
 | Framework | Next.js 15 (App Router) + React 19 + TypeScript |
-| Database | Prisma + SQLite (local dev; use PostgreSQL for multi-tenant production) |
+| Database | Prisma + PostgreSQL (Docker locally, Neon in production) |
 | Styling | Tailwind CSS 4 |
 | Auth | bcrypt + HMAC-signed session cookies |
 | PDF | pdf-lib |
@@ -77,7 +108,7 @@ Copy `.env.example` to `.env`:
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_URL` | Yes | SQLite path, e.g. `file:./dev.db` |
+| `DATABASE_URL` | Yes | PostgreSQL connection string. Local dev: `postgresql://rental:rental@localhost:5432/rental_app` |
 | `SESSION_SECRET` | **Production** | HMAC secret for session cookies. App throws at startup if missing in production. |
 | `NEXT_PUBLIC_APP_URL` | Stripe / pay links | Public app URL, e.g. `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Optional | Stripe API key |
@@ -94,6 +125,7 @@ Copy `.env.example` to `.env`:
 | `npm run lint` | ESLint |
 | `npm run db:generate` | Regenerate Prisma client |
 | `npm run db:push` | Push schema to database |
+| `npm run db:migrate` | Create a migration file + apply it |
 | `npm run db:seed` | Seed demo data |
 | `npm run db:setup` | `db:push` + `db:seed` |
 
@@ -233,7 +265,7 @@ Check that amounts are in dollars (e.g. `125.50`, not cents). Excel numbers are 
 ## Production Checklist
 
 - [ ] Set strong `SESSION_SECRET` (app refuses default in production)
-- [ ] Switch `DATABASE_URL` to PostgreSQL for multi-user hosting
+- [ ] Set `DATABASE_URL` to Neon (or other managed PostgreSQL)
 - [ ] Configure real email provider (replace console logger in `src/lib/email.ts`)
 - [ ] Move file storage to S3/R2 (replace local `uploads/` in `src/lib/files.ts`)
 - [ ] Set up HTTPS and `NEXT_PUBLIC_APP_URL`
