@@ -54,6 +54,7 @@ npm run dev
 | `make setup` | First-time setup (DB + deps + schema + seed) |
 | `make dev` | Start DB + app |
 | `make db-reset` | Wipe and reseed the database |
+| `make db-import-sqlite` | Import legacy `prisma/dev.db` (SQLite) into PostgreSQL |
 | `make studio` | Open Prisma Studio at http://localhost:5555 |
 | `make db-down` | Stop the database container |
 
@@ -128,6 +129,25 @@ Copy `.env.example` to `.env`:
 | `npm run db:migrate` | Create a migration file + apply it |
 | `npm run db:seed` | Seed demo data |
 | `npm run db:setup` | `db:push` + `db:seed` |
+| `npm run db:import-sqlite` | Import legacy SQLite `prisma/dev.db` into PostgreSQL |
+
+### Import legacy SQLite data
+
+If you used the app before the PostgreSQL migration, your old data may still be in `prisma/dev.db` (not tracked by git). To copy it into PostgreSQL:
+
+```bash
+make db-up                                    # ensure Postgres is running
+npm run db:import-sqlite -- --dry-run         # preview row counts
+npm run db:import-sqlite -- --replace         # clear Postgres, then import all rows
+```
+
+Or without clearing existing Postgres data (upsert by id):
+
+```bash
+npm run db:import-sqlite
+```
+
+Custom SQLite path: `SQLITE_PATH=/path/to/dev.db npm run db:import-sqlite`
 
 ### Utility scripts
 
@@ -164,7 +184,7 @@ src/
 prisma/schema.prisma         Data models
 public/samples/              Example .xlsx files for bill import
 uploads/                     Local file storage (dev)
-scripts/                     install.sh, create-shortcut.sh, test-parse-bills.ts
+scripts/                     install.sh, migrate-sqlite-to-postgres.ts, test-parse-bills.ts
 ```
 
 ## Architecture Patterns

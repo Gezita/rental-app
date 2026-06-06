@@ -1,6 +1,6 @@
 # Rentals Dashboard — cross-platform dev tasks (macOS + Linux)
 SHELL := /bin/bash
-.PHONY: help setup dev db-up db-down db-reset db-wait studio install-node check-node check-docker env-setup
+.PHONY: help setup dev db-up db-down db-reset db-wait db-import-sqlite studio install-node check-node check-docker env-setup
 
 # Prefer Compose V2 (`docker compose`); fall back to legacy `docker-compose`.
 DOCKER_COMPOSE := $(shell \
@@ -26,6 +26,7 @@ help:
 	@echo "  make db-up          Start Postgres container"
 	@echo "  make db-down        Stop Postgres container"
 	@echo "  make db-reset       Push schema and reseed demo data"
+	@echo "  make db-import-sqlite  Import legacy prisma/dev.db into PostgreSQL"
 	@echo "  make db-wait        Wait until Postgres accepts connections"
 	@echo "  make studio         Open Prisma Studio (http://localhost:5555)"
 	@echo ""
@@ -168,6 +169,11 @@ db-reset: check-node check-docker
 	$(MAKE) db-wait
 	npm run db:push
 	npm run db:seed
+
+db-import-sqlite: check-node check-docker env-setup
+	$(DOCKER_COMPOSE) up -d
+	$(MAKE) db-wait
+	npm run db:import-sqlite -- $(ARGS)
 
 studio: check-node env-setup
 	npx prisma studio
