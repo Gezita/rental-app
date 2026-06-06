@@ -9,14 +9,14 @@ Landlord billing and document management for small portfolios (1–20 units). Bu
 ### macOS (double-click)
 
 1. **Install:** double-click `install.command` in Finder  
-   (If macOS blocks it: right-click → **Open** → **Open** once.)
-2. **Run:** double-click **zigglo** on your Desktop (or `start.command`) — opens [http://localhost:3000](http://localhost:3000)
+   (If macOS blocked: right-click → **Open** → **Open** once.)
+2. **Run:** double-click **zigglo** on your Desktop (or `start.command`)
 
-The installer checks Node.js (installs via Homebrew if needed), creates `.env`, installs dependencies, seeds the database, builds the app, and adds a Desktop shortcut.
+> **Note:** The double-click installer sets up a local SQLite file. For PostgreSQL (matches production), use **Terminal → `make setup`** below instead.
 
-To recreate the shortcut later, double-click `create-shortcut.command`.
+To recreate the Desktop shortcut, double-click `create-shortcut.command`.
 
-### Terminal (macOS or Linux)
+### Terminal (macOS or Linux) — recommended
 
 If you don't have Node.js 20:
 ```bash
@@ -25,16 +25,18 @@ make install-node   # installs fnm (Node version manager)
 fnm install 20 && fnm default 20
 ```
 
-Then:
+First-time setup (creates `.env`, starts Postgres, installs deps, seeds demo data):
+
 ```bash
-cp .env.example .env
-make setup   # starts Postgres, installs deps, pushes schema, seeds demo data
-make dev     # starts Postgres + the app
+make setup
+make dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
 
 **Demo account:** `demo@landlord.app` / `demo1234`
+
+Run `make help` to see all available commands.
 
 ### Without Make
 
@@ -50,41 +52,83 @@ npm run dev
 
 | Command | What it does |
 |---------|-------------|
+| `make help` | List all make targets |
 | `make install-node` | Install fnm (Node version manager) |
-| `make setup` | First-time setup (DB + deps + schema + seed) |
+| `make setup` | First-time setup (env, Postgres, deps, schema, seed) |
 | `make dev` | Start app (PostgreSQL or SQLite — see `make db-status`) |
 | `make dev-sqlite` | Start app on local `prisma/dev.db` (no Docker) |
+| `make db-up` | Start Postgres container |
+| `make db-down` | Stop Postgres container (data is kept) |
 | `make db-use-sqlite` | Switch to SQLite file (`prisma/dev.db`) |
 | `make db-use-postgres` | Switch to PostgreSQL (Docker) |
 | `make db-status` | Show which database mode is active |
 | `make db-backup-sqlite` | Copy `prisma/dev.db` to `prisma/backups/` |
-| `make db-reset` | Wipe and reseed the database |
-| `make db-import-sqlite` | Import legacy `prisma/dev.db` (SQLite) into PostgreSQL |
+| `make db-reset` | Wipe and reseed the active database |
+| `make db-import-sqlite` | Copy `prisma/dev.db` into PostgreSQL |
 | `make studio` | Open Prisma Studio at http://localhost:5555 |
-| `make db-down` | Stop the database container |
 
-### Switch between PostgreSQL and SQLite
+## Local database
 
-Use PostgreSQL (Docker) for day-to-day dev matching production. Switch to SQLite when you want a **portable local file** you can back up easily.
+The app supports two local database modes. **PostgreSQL (Docker)** is the default and matches production. **SQLite** (`prisma/dev.db`) is a single portable file that's easy to back up.
+
+### PostgreSQL (default)
+
+Docker stores data in a named volume (`postgres_data`). **Stopping Docker does not delete your data.**
+
+| Action | Data safe? |
+|--------|------------|
+| `make db-down` / `docker compose down` | Yes |
+| `docker compose stop` | Yes |
+| Quit Docker Desktop | Yes — data returns when Docker starts again |
+| `docker compose down -v` | **No** — removes volumes |
+| `docker volume rm …` | **No** |
+
+Connect with psql:
+
+```bash
+docker compose exec db psql -U rental -d rental_app
+```
+
+### SQLite (portable file)
+
+Your live data can live in **`prisma/dev.db`** (gitignored, not in commits). Use this when you want a file you can copy or back up directly.
+
+```bash
+make db-use-sqlite      # switch .env + Prisma schema
+make dev-sqlite         # run app (no Docker)
+make db-backup-sqlite   # copy to prisma/backups/
+```
+
+Each `make db-use-*` switch auto-backs up `prisma/dev.db` before changing modes.
+
+### Switch between modes
 
 ```bash
 make db-status          # what am I using now?
 
-make db-use-sqlite      # .env + Prisma schema → prisma/dev.db
-make dev-sqlite         # run app (no Docker)
+# SQLite — portable file, no Docker
+make db-use-sqlite
+make dev-sqlite
 
-make db-use-postgres    # .env + Prisma schema → Docker Postgres
-make db-up && make dev  # run app with Postgres
+# PostgreSQL — matches production
+make db-use-postgres
+make db-up && make dev
 ```
 
-Each switch **backs up** `prisma/dev.db` to `prisma/backups/` before changing modes.
+### Copy SQLite → PostgreSQL
 
-To copy SQLite data into Postgres after working offline:
+After working in SQLite mode, import into Postgres:
 
 ```bash
 make db-use-postgres
-make db-import-sqlite ARGS="--replace"
+make db-up
+make db-import-sqlite ARGS="--dry-run"    # preview row counts
+make db-import-sqlite ARGS="--replace"    # replace Postgres with SQLite data
 ```
+
+Upsert without clearing Postgres: `make db-import-sqlite`
+
+Custom SQLite path: `SQLITE_PATH=/path/to/dev.db npm run db:import-sqlite`
 
 ## Features
 
@@ -123,7 +167,7 @@ make db-import-sqlite ARGS="--replace"
 | Layer | Choice |
 |-------|--------|
 | Framework | Next.js 15 (App Router) + React 19 + TypeScript |
-| Database | Prisma + PostgreSQL (Docker locally, Neon in production) |
+| Database | Prisma + PostgreSQL (Docker locally, Neon in production). Optional SQLite file (`prisma/dev.db`) for portable local backups. |
 | Styling | Tailwind CSS 4 |
 | Auth | bcrypt + HMAC-signed session cookies |
 | PDF | pdf-lib |
@@ -133,11 +177,11 @@ make db-import-sqlite ARGS="--replace"
 
 ## Environment Variables
 
-Copy `.env.example` to `.env`:
+Copy `.env.example` to `.env` (or run `make setup` / `make db-use-*` to create it automatically):
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string. Local dev: `postgresql://rental:rental@localhost:5432/rental_app` |
+| `DATABASE_URL` | Yes | **PostgreSQL:** `postgresql://rental:rental@localhost:5432/rental_app` · **SQLite:** `file:./dev.db` (use `make db-use-sqlite` to switch) |
 | `SESSION_SECRET` | **Production** | HMAC secret for session cookies. App throws at startup if missing in production. |
 | `NEXT_PUBLIC_APP_URL` | Stripe / pay links | Public app URL, e.g. `http://localhost:3000` |
 | `STRIPE_SECRET_KEY` | Optional | Stripe API key |
@@ -162,29 +206,15 @@ Copy `.env.example` to `.env`:
 | `npm run db:use-postgres` | Switch local dev to PostgreSQL |
 | `npm run db:status` | Show active database mode |
 
-### Import legacy SQLite data
-
-If you used the app before the PostgreSQL migration, your old data may still be in `prisma/dev.db` (not tracked by git). To copy it into PostgreSQL:
-
-```bash
-make db-up                                    # ensure Postgres is running
-npm run db:import-sqlite -- --dry-run         # preview row counts
-npm run db:import-sqlite -- --replace         # clear Postgres, then import all rows
-```
-
-Or without clearing existing Postgres data (upsert by id):
-
-```bash
-npm run db:import-sqlite
-```
-
-Custom SQLite path: `SQLITE_PATH=/path/to/dev.db npm run db:import-sqlite`
-
 ### Utility scripts
 
 ```bash
 # Test spreadsheet bill parser against sample files
 npx tsx scripts/test-parse-bills.ts
+
+# Switch database mode (same as make db-use-*)
+npm run db:use-sqlite
+npm run db:use-postgres
 ```
 
 ## Project Structure
@@ -213,9 +243,11 @@ src/
     └── …                    email, pdf, stripe, overdue, auto-billing
 
 prisma/schema.prisma         Data models
+prisma/dev.db                Local SQLite file (gitignored; optional dev mode)
+prisma/backups/              Auto backups of dev.db when switching modes
 public/samples/              Example .xlsx files for bill import
 uploads/                     Local file storage (dev)
-scripts/                     install.sh, migrate-sqlite-to-postgres.ts, test-parse-bills.ts
+scripts/                     switch-db-mode.sh, migrate-sqlite-to-postgres.ts, install.sh
 ```
 
 ## Architecture Patterns
@@ -300,7 +332,18 @@ rm -rf .next && npm run dev
 
 ```bash
 npm run db:push
-npm run db:seed   # optional, resets demo data
+npm run db:seed   # optional, adds demo user (PostgreSQL or SQLite)
+```
+
+Check active mode: `make db-status`
+
+### Lost PostgreSQL data in Docker
+
+Data is only deleted if you ran `docker compose down -v` or removed the volume manually. To restore from SQLite:
+
+```bash
+make db-use-postgres && make db-up
+make db-import-sqlite ARGS="--replace"
 ```
 
 ### Spreadsheet import fails
