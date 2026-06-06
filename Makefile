@@ -1,6 +1,6 @@
 # Rentals Dashboard — cross-platform dev tasks (macOS + Linux)
 SHELL := /bin/bash
-.PHONY: help setup dev db-up db-down db-reset db-wait db-import-sqlite studio install-node check-node check-docker env-setup
+.PHONY: help setup dev dev-sqlite db-up db-down db-reset db-wait db-import-sqlite db-use-postgres db-use-sqlite db-status db-backup-sqlite studio install-node check-node check-docker env-setup
 
 # Prefer Compose V2 (`docker compose`); fall back to legacy `docker-compose`.
 DOCKER_COMPOSE := $(shell \
@@ -22,7 +22,12 @@ help:
 	@echo ""
 	@echo "  make install-node   Install fnm (Node version manager)"
 	@echo "  make setup          First-time setup (env, DB, deps, schema, seed)"
-	@echo "  make dev            Start Postgres + Next.js dev server"
+	@echo "  make dev            Start app (Postgres or SQLite — see db-status)"
+	@echo "  make dev-sqlite     Start app using SQLite only (no Docker)"
+	@echo "  make db-use-postgres  Switch .env + schema to PostgreSQL"
+	@echo "  make db-use-sqlite    Switch .env + schema to local prisma/dev.db"
+	@echo "  make db-status      Show active database mode"
+	@echo "  make db-backup-sqlite Back up prisma/dev.db to prisma/backups/"
 	@echo "  make db-up          Start Postgres container"
 	@echo "  make db-down        Stop Postgres container"
 	@echo "  make db-reset       Push schema and reseed demo data"
@@ -150,10 +155,44 @@ setup: check-node check-docker env-setup
 	@echo "Setup complete. Run 'make dev' to start."
 	@echo "Demo account: demo@landlord.app / demo1234"
 
-dev: check-node check-docker env-setup
-	$(DOCKER_COMPOSE) up -d
-	$(MAKE) db-wait
+dev: check-node env-setup
+	@if [ -f .db-mode ] && [ "$$(cat .db-mode)" = "sqlite" ]; then \
+		$(MAKE) dev-sqlite; \
+	else \
+		$(MAKE) check-docker; \
+		$(DOCKER_COMPOSE) up -d; \
+		$(MAKE) db-wait; \
+		npm run dev; \
+	fi
+
+dev-sqlite: check-node env-setup
+	@if [ ! -f .db-mode ] || [ "$$(cat .db-mode)" != "sqlite" ]; then \
+		echo "Switching to SQLite first…"; \
+		./scripts/switch-db-mode.sh sqlite; \
+	fi
+	@echo "Dev mode: SQLite (prisma/dev.db)"
 	npm run dev
+
+db-use-postgres:
+	@./scripts/switch-db-mode.sh postgres
+
+db-use-sqlite:
+	@./scripts/switch-db-mode.sh sqlite
+
+db-status:
+	@./scripts/switch-db-mode.sh status
+
+db-backup-sqlite:
+	@mkdir -p prisma/backups
+	@if [ -f prisma/dev.db ]; then \
+		stamp=$$(date +%Y%m%d-%H%M%S); \
+		cp prisma/dev.db "prisma/backups/dev-$$stamp.db"; \
+		cp prisma/dev.db prisma/backups/dev-latest.db; \
+		echo "Backed up to prisma/backups/dev-$$stamp.db"; \
+	else \
+		echo "No prisma/dev.db to back up."; \
+		exit 1; \
+	fi
 
 # ── Database helpers ───────────────────────────────────────────────────────────
 

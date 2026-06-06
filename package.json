@@ -13,6 +13,9 @@
     "db:migrate": "prisma migrate dev",
     "db:setup": "prisma db push && tsx prisma/seed.ts",
     "db:import-sqlite": "tsx scripts/migrate-sqlite-to-postgres.ts",
+    "db:use-postgres": "bash scripts/switch-db-mode.sh postgres",
+    "db:use-sqlite": "bash scripts/switch-db-mode.sh sqlite",
+    "db:status": "bash scripts/switch-db-mode.sh status",
     "postinstall": "prisma generate"
   },
   "dependencies": {

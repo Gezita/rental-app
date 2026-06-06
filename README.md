@@ -52,11 +52,39 @@ npm run dev
 |---------|-------------|
 | `make install-node` | Install fnm (Node version manager) |
 | `make setup` | First-time setup (DB + deps + schema + seed) |
-| `make dev` | Start DB + app |
+| `make dev` | Start app (PostgreSQL or SQLite — see `make db-status`) |
+| `make dev-sqlite` | Start app on local `prisma/dev.db` (no Docker) |
+| `make db-use-sqlite` | Switch to SQLite file (`prisma/dev.db`) |
+| `make db-use-postgres` | Switch to PostgreSQL (Docker) |
+| `make db-status` | Show which database mode is active |
+| `make db-backup-sqlite` | Copy `prisma/dev.db` to `prisma/backups/` |
 | `make db-reset` | Wipe and reseed the database |
 | `make db-import-sqlite` | Import legacy `prisma/dev.db` (SQLite) into PostgreSQL |
 | `make studio` | Open Prisma Studio at http://localhost:5555 |
 | `make db-down` | Stop the database container |
+
+### Switch between PostgreSQL and SQLite
+
+Use PostgreSQL (Docker) for day-to-day dev matching production. Switch to SQLite when you want a **portable local file** you can back up easily.
+
+```bash
+make db-status          # what am I using now?
+
+make db-use-sqlite      # .env + Prisma schema → prisma/dev.db
+make dev-sqlite         # run app (no Docker)
+
+make db-use-postgres    # .env + Prisma schema → Docker Postgres
+make db-up && make dev  # run app with Postgres
+```
+
+Each switch **backs up** `prisma/dev.db` to `prisma/backups/` before changing modes.
+
+To copy SQLite data into Postgres after working offline:
+
+```bash
+make db-use-postgres
+make db-import-sqlite ARGS="--replace"
+```
 
 ## Features
 
@@ -130,6 +158,9 @@ Copy `.env.example` to `.env`:
 | `npm run db:seed` | Seed demo data |
 | `npm run db:setup` | `db:push` + `db:seed` |
 | `npm run db:import-sqlite` | Import legacy SQLite `prisma/dev.db` into PostgreSQL |
+| `npm run db:use-sqlite` | Switch local dev to SQLite (`prisma/dev.db`) |
+| `npm run db:use-postgres` | Switch local dev to PostgreSQL |
+| `npm run db:status` | Show active database mode |
 
 ### Import legacy SQLite data
 
