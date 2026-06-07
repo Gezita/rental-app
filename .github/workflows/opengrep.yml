@@ -1,13 +1,6 @@
 name: Opengrep SAST
 
-on:
-  push:
-    branches:
-      - main
-      - develop
-  pull_request:
-    branches:
-      - main
+on: push
 
 permissions:
   contents: read
