@@ -1,0 +1,27 @@
+name: Opengrep PR Scan
+
+on: push
+
+  #pull_request:
+   # branches: [ main, master ] # Adjust these to match your target branches
+
+jobs:
+  opengrep-scan:
+    name: Run Opengrep
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the PR branch code
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Step 2: Install Opengrep CLI via Python pip
+      - name: Set up Python and Install Opengrep
+        run: |
+          python -m pip install --upgrade pip
+          pip install opengrep # Or use 'pip install semgrep' if referencing the engine ecosystem
+
+      # Step 3: Scan only the changed code in the PR
+      - name: Opengrep Scan
+        run: opengrep scan --ci
+
