@@ -181,6 +181,11 @@
   },
   "active": "5b92e12aaada8758",
   "lastOpenFiles": [
+    "AGENTS.md",
+    "AGENTS.md.tmp.21556.4111c97c36f8",
+    "CLAUDE.md.tmp.21556.5087c8eb1b39",
+    "CLAUDE.md.tmp.21556.518aafa52611",
+    "CLAUDE.md.tmp.21556.709b55ea7d84",
     "zigglo_ui_style_guide.md",
     "src/lib/t776-report.ts",
     "src/lib/statement-stats.ts",
@@ -188,10 +193,6 @@
     "src/lib/portfolio-stats.ts",
     "src/lib/lease-wizard.ts",
     "src/lib/fill-t776-form.ts",
-    "src/lib/export-t776.ts",
-    "src/components/layout/brand-logo.tsx",
-    "src/components/export-t776-form.tsx",
-    "src/components/documents-table.tsx",
     "src/app/icon.png",
     "src/app/apple-icon.png",
     "public/brand/zigglo-logo.svg",
@@ -225,7 +226,6 @@
     "node_modules/next/node_modules/postcss/README.md",
     "node_modules/fast-glob/node_modules/glob-parent/README.md",
     "node_modules/fast-glob/node_modules/glob-parent/CHANGELOG.md",
-    "node_modules/eslint-plugin-react/node_modules/semver/README.md",
-    "node_modules/eslint-plugin-jsx-a11y/docs/rules/tabindex-no-positive.md"
+    "node_modules/eslint-plugin-react/node_modules/semver/README.md"
   ]
 }
