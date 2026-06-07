@@ -1,29 +1,38 @@
-name: Security scan
+# .github/workflows/opengrep.yml
+name: Opengrep SAST
 
 on: push
-  #push:
   #pull_request:
+  #  branches:
+  #    - main
 
 permissions:
   contents: read
+  security-events: write
 
 jobs:
   opengrep:
+    name: Run Opengrep
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - id: scan
-        uses: platform-sec/opengrep-action@LATEST_SHA256_HASH
-        with:
-          target: .
-          output-format: json/sarif
-          strict: true
+      - name: Install Opengrep
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+          echo "$HOME/.opengrep/bin" >> "$GITHUB_PATH"
 
-      - uses: actions/upload-artifact@v4
+      - name: Run Opengrep scan
+        run: |
+          opengrep scan \
+            --config auto \
+            --sarif-output opengrep.sarif \
+            .
+
+      - name: Upload SARIF to GitHub Security
         if: always()
+        uses: github/codeql-action/upload-sarif@v3
         with:
-          name: opengrep-results
-          path: |
-            ${{ steps.scan.outputs.json-file }}
-            ${{ steps.scan.outputs.sarif-file }}
+          sarif_file: opengrep.sarif
