@@ -1,10 +1,13 @@
-# .github/workflows/opengrep.yml
 name: Opengrep SAST
 
-on: push
-  #pull_request:
-  #  branches:
-  #    - main
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -24,15 +27,25 @@ jobs:
           curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
           echo "$HOME/.opengrep/bin" >> "$GITHUB_PATH"
 
+      - name: Confirm Opengrep is installed
+        run: |
+          which opengrep
+          opengrep --version
+
       - name: Run Opengrep scan
         run: |
           opengrep scan \
             --config auto \
-            --sarif-output opengrep.sarif \
-            .
+            --sarif-output "${{ github.workspace }}/opengrep.sarif" \
+            "${{ github.workspace }}"
+
+      - name: Confirm SARIF file exists
+        run: |
+          ls -lah "${{ github.workspace }}"
+          test -f "${{ github.workspace }}/opengrep.sarif"
 
       - name: Upload SARIF to GitHub Security
         if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: opengrep.sarif
+          sarif_file: ${{ github.workspace }}/opengrep.sarif
