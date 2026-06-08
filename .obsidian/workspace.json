@@ -11,14 +11,10 @@
             "id": "5b92e12aaada8758",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "production-plan.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "production-plan"
+              "title": "New tab"
             }
           }
         ]
@@ -185,28 +181,32 @@
   },
   "active": "5b92e12aaada8758",
   "lastOpenFiles": [
-    "README.md.tmp.13243.bd7a4631b7ad",
-    "README.md.tmp.13243.9d48aa626d3b",
-    "Makefile.tmp.13243.a2d03c66f07c",
-    "README.md.tmp.13243.b9906401b4d7",
-    "README.md.tmp.13243.9b5691b998d3",
-    "README.md.tmp.13243.93debce46d8d",
-    "README.md.tmp.13243.2a8af90bd5a6",
-    "README.md.tmp.13243.937c657d1d1d",
-    "Makefile",
-    "Makefile.tmp.13243.1bc5959650e4",
-    "docker-compose.yml.tmp.13243.13fea492c844",
+    "AGENTS.md",
+    "AGENTS.md.tmp.21556.4111c97c36f8",
+    "CLAUDE.md.tmp.21556.5087c8eb1b39",
+    "CLAUDE.md.tmp.21556.518aafa52611",
+    "CLAUDE.md.tmp.21556.709b55ea7d84",
+    "zigglo_ui_style_guide.md",
+    "src/lib/t776-report.ts",
+    "src/lib/statement-stats.ts",
+    "src/lib/statement-extras.ts",
+    "src/lib/portfolio-stats.ts",
+    "src/lib/lease-wizard.ts",
+    "src/lib/fill-t776-form.ts",
+    "src/app/icon.png",
+    "src/app/apple-icon.png",
+    "public/brand/zigglo-logo.svg",
+    "public/brand/zigglo-logo.png",
+    "public/brand/zigglo-icon.svg",
+    "public/brand/zigglo-icon.png",
+    "public/brand/zigglo-icon-mark.png",
+    "production-plan.md",
+    "infrastructure-idea.md",
+    "CLAUDE.md",
     "node_modules/next/dist/compiled/@babel/runtime/README.md",
     "node_modules/prisma/build/public/assets/tick.8cbb6a93.svg",
     "node_modules/prisma/build/public/assets/tick-indeterminate.aec8a44d.svg",
     "node_modules/prisma/build/public/assets/sun.89774753.svg",
-    "node_modules/prisma/build/public/assets/string.ea615a24.svg",
-    "node_modules/prisma/build/public/assets/settings.5ad25af2.svg",
-    "node_modules/prisma/build/public/assets/search.2ed766ce.svg",
-    "node_modules/prisma/build/public/assets/plus.8fbf7ad3.svg",
-    "node_modules/prisma/build/public/assets/refresh.d5448ccc.svg",
-    "node_modules/prisma/build/public/assets/play.8811691e.svg",
-    "node_modules/prisma/build/public/assets/panel-left.a81e4b97.svg",
     "node_modules/nypm/node_modules/citty/dist/THIRD-PARTY-LICENSES.md",
     "node_modules/next/dist/compiled/regenerator-runtime/README.md",
     "node_modules/next/dist/compiled/react-is/README.md",
@@ -226,10 +226,6 @@
     "node_modules/next/node_modules/postcss/README.md",
     "node_modules/fast-glob/node_modules/glob-parent/README.md",
     "node_modules/fast-glob/node_modules/glob-parent/CHANGELOG.md",
-    "node_modules/eslint-plugin-react/node_modules/semver/README.md",
-    "node_modules/eslint-plugin-jsx-a11y/docs/rules/tabindex-no-positive.md",
-    "node_modules/eslint-plugin-jsx-a11y/docs/rules/scope.md",
-    "node_modules/eslint-plugin-jsx-a11y/docs/rules/role-supports-aria-props.md",
-    "node_modules/eslint-plugin-jsx-a11y/docs/rules/role-has-required-aria-props.md"
+    "node_modules/eslint-plugin-react/node_modules/semver/README.md"
   ]
 }

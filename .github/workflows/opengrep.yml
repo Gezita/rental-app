@@ -1,0 +1,59 @@
+name: Opengrep SAST
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  opengrep:
+    name: Run Opengrep
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Opengrep
+        run: |
+          set -euxo pipefail
+
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+
+          echo "Checking common install locations..."
+          find "$HOME" -type f -name opengrep -perm -111 2>/dev/null || true
+
+          OPENGREP_BIN="$(find "$HOME" -type f -name opengrep -perm -111 2>/dev/null | head -n 1)"
+
+          if [ -z "$OPENGREP_BIN" ]; then
+            echo "Opengrep binary was not found after install"
+            exit 1
+          fi
+
+          echo "Found Opengrep at: $OPENGREP_BIN"
+          echo "$(dirname "$OPENGREP_BIN")" >> "$GITHUB_PATH"
+
+      - name: Confirm Opengrep is installed
+        run: |
+          opengrep --version
+
+      - name: Run Opengrep scan
+        run: |
+          opengrep scan \
+            --config auto \
+            --sarif-output "${{ github.workspace }}/opengrep.sarif" \
+            "${{ github.workspace }}"
+
+      - name: Confirm SARIF file exists
+        run: |
+          ls -lah "${{ github.workspace }}"
+          test -f "${{ github.workspace }}/opengrep.sarif"
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ github.workspace }}/opengrep.sarif
