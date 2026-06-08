@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { generateLtbNoticeAction } from "@/app/actions/communications";
