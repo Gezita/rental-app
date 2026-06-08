@@ -31,6 +31,19 @@ fi
 PORT="${PORT:-3000}"
 URL="http://localhost:${PORT}"
 
+# Stop a previous dev server on this port (e.g. from an earlier shortcut run).
+if lsof -ti "tcp:${PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+  echo -e "${BLUE}▸${NC} Stopping previous server on port ${PORT}…"
+  lsof -ti "tcp:${PORT}" -sTCP:LISTEN | xargs kill 2>/dev/null || true
+  sleep 1
+fi
+
+# Dev and production builds share .next — clear it to avoid webpack chunk errors.
+if [[ -d .next ]]; then
+  echo -e "${BLUE}▸${NC} Clearing build cache…"
+  rm -rf .next
+fi
+
 echo ""
 echo -e "${GREEN}zigglo${NC}"
 echo "  Starting at ${URL}"

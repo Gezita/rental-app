@@ -38,7 +38,7 @@ export {
   deleteDocumentsAction,
 } from "./documents";
 
-export { generateLeaseAction } from "./leases";
+export { generateLeaseAction, generateStandardLease2229eAction } from "./leases";
 
 export { exportT776ReportAction } from "./tax";
 
@@ -47,6 +47,7 @@ export {
   sendLtbNoticeEmailAction,
   sendAnnouncementEmailAction,
   uploadMaintenanceReceiptAction,
+  generateLtbNoticeAction,
 } from "./communications";
 
 export { signUpAction, signInAction, signOutAction } from "./auth";

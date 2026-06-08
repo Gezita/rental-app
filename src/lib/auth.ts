@@ -16,7 +16,9 @@ export const getSessionUserId = cache(async (): Promise<string | null> => {
     select: { id: true },
   });
 
-  return user?.id ?? null;
+  if (!user) return null;
+
+  return user.id;
 });
 
 export const requireUser = cache(async () => {

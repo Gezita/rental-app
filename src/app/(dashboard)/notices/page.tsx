@@ -103,11 +103,14 @@ export default async function NoticesPage({
   return (
     <div className="space-y-6">
       <PageBackNav />
-      <div>
-        <h1 className="text-2xl font-bold">LTB Notices & Tenant Communications</h1>
-        <p className="text-muted">
-          Ontario Landlord and Tenant Board N-series forms, notice delivery, and announcements
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">LTB Notices & Tenant Communications</h1>
+          <p className="text-muted">
+            Ontario Landlord and Tenant Board N-series forms, notice delivery, and announcements
+          </p>
+        </div>
+        <ButtonLink href="/notices/wizard">Open notice wizard</ButtonLink>
       </div>
 
       {params.uploaded && <Alert>Notice uploaded successfully.</Alert>}
@@ -127,6 +130,19 @@ export default async function NoticesPage({
       {params.error === "no_email" && (
         <Alert variant="error">No tenants with email addresses matched your selection.</Alert>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Fill Official LTB Forms</CardTitle>
+          <CardDescription>
+            Step through N-series notices with tenant and property details pre-filled, then generate
+            a draft PDF ready to review against the official form.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ButtonLink href="/notices/wizard">Start LTB notice wizard</ButtonLink>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

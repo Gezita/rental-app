@@ -288,6 +288,237 @@ export async function generateLeasePdf(
   });
 }
 
+export async function generateLtbNoticePdf(
+  data: import("./ltb-notice-wizard").LtbNoticeWizardInput & {
+    userId: string;
+    propertyId: string;
+    unitId?: string;
+    tenantId?: string;
+  }
+) {
+  const { buildLtbNoticeFieldLines } = await import("./ltb-notice-wizard");
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const page = pdf.addPage([612, 792]);
+  const w = createPdfWriter(pdf, page, font, fontBold);
+
+  w.draw(`FORM ${data.formCode}`, 14, true);
+  w.draw(data.formName, 12, true);
+  w.draw("Landlord and Tenant Board — Ontario (Draft prepared with Zigglo)", 9);
+  w.draw(
+    "Review against the official LTB PDF before serving. Official blank forms: tribunalsontario.ca/ltb/forms/",
+    9
+  );
+  w.y -= 8;
+
+  w.draw("Landlord", 13, true);
+  w.draw(`Name: ${data.landlordName}`);
+  if (data.landlordAddress) w.draw(`Address: ${data.landlordAddress}`);
+  if (data.landlordEmail) w.draw(`Email: ${data.landlordEmail}`);
+  if (data.landlordPhone) w.draw(`Phone: ${data.landlordPhone}`);
+  w.y -= 4;
+
+  w.draw("Tenant", 13, true);
+  w.draw(`Name: ${data.tenantName}`);
+  if (data.tenantEmail) w.draw(`Email: ${data.tenantEmail}`);
+  if (data.tenantPhone) w.draw(`Phone: ${data.tenantPhone}`);
+  w.y -= 4;
+
+  w.draw("Rental Unit", 13, true);
+  w.draw(`Property: ${data.propertyName}`);
+  w.draw(`Unit: ${data.unitName}`);
+  w.draw(`Address: ${data.propertyAddress}`);
+  w.y -= 4;
+
+  w.draw("Notice Details", 13, true);
+  w.draw(
+    `Date notice given: ${data.serviceDate.toLocaleDateString("en-CA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })}`
+  );
+  if (data.terminationDate) {
+    w.draw(
+      `Termination / effective date: ${data.terminationDate.toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}`
+    );
+  } else if (data.effectiveDate) {
+    w.draw(
+      `Effective date: ${data.effectiveDate.toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}`
+    );
+  }
+
+  for (const line of buildLtbNoticeFieldLines(data.formCode, data.fieldValues)) {
+    w.drawParagraph(line);
+  }
+
+  if (data.notes?.trim()) {
+    w.y -= 4;
+    w.draw("Additional notes", 12, true);
+    w.drawParagraph(data.notes.trim());
+  }
+
+  w.y -= 8;
+  w.draw("Service & signatures", 13, true);
+  w.drawParagraph(
+    "Serve this notice according to the Residential Tenancies Act. Keep proof of service. Both parties should retain signed copies."
+  );
+  w.y -= 20;
+  w.draw("Landlord signature: _________________________    Date: ______________");
+  w.y -= 20;
+  w.draw("Tenant signature: ___________________________    Date: ______________");
+
+  const pdfBytes = await pdf.save();
+  const fileName = `${data.formCode}-${data.unitName.replace(/[^a-zA-Z0-9_-]/g, "_")}-${data.serviceDate.toISOString().slice(0, 10)}.pdf`;
+  return savePdfDocument(pdfBytes, fileName, {
+    userId: data.userId,
+    category: "ltb_notice",
+    propertyId: data.propertyId,
+    unitId: data.unitId,
+    tenantId: data.tenantId,
+    notes: `${data.formCode} draft for ${data.tenantName}`,
+    tags: data.formCode,
+  });
+}
+
+export async function generateStandardLease2229ePdf(
+  data: import("./standard-lease-2229e").StandardLease2229eInput & {
+    userId: string;
+    propertyId: string;
+    unitId: string;
+    tenantId: string;
+  }
+) {
+  const { build2229eUtilitySummary, buildServicesIncluded, format2229eTerm } = await import(
+    "./standard-lease-2229e"
+  );
+  const { buildPetsClause } = await import("./lease-wizard");
+
+  const pdf = await PDFDocument.create();
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const page = pdf.addPage([612, 792]);
+  const w = createPdfWriter(pdf, page, font, fontBold);
+
+  w.draw("RESIDENTIAL TENANCY AGREEMENT", 16, true);
+  w.draw("Ontario Standard Lease — Form 2229E (December 2020) — Draft", 11, true);
+  w.draw(
+    "Copy these details into the official fillable PDF at forms.mgcs.gov.on.ca. Do not alter pre-printed terms on the official form.",
+    9
+  );
+  w.y -= 8;
+
+  w.draw("Part 1 — Parties to the Agreement", 13, true);
+  w.draw(`Landlord: ${data.landlordName}`);
+  if (data.landlordAddress) w.draw(`Landlord address: ${data.landlordAddress}`);
+  w.draw(`Tenant(s): ${data.tenantName}`);
+  w.y -= 4;
+
+  w.draw("Part 2 — Rental Unit", 13, true);
+  w.draw(`Address: ${data.propertyAddress}`);
+  w.draw(`Unit / designation: ${data.unitName} (${data.propertyName})`);
+  w.y -= 4;
+
+  w.draw("Part 3 — Contact Information", 13, true);
+  if (data.landlordEmail) w.draw(`Landlord email: ${data.landlordEmail}`);
+  if (data.landlordPhone) w.draw(`Landlord phone: ${data.landlordPhone}`);
+  if (data.tenantEmail) w.draw(`Tenant email: ${data.tenantEmail}`);
+  if (data.tenantPhone) w.draw(`Tenant phone: ${data.tenantPhone}`);
+  if (data.emergencyContactName) {
+    w.draw(`Emergency contact: ${data.emergencyContactName}${data.emergencyContactPhone ? ` — ${data.emergencyContactPhone}` : ""}`);
+  }
+  w.y -= 4;
+
+  w.draw("Part 4 — Term of Tenancy Agreement", 13, true);
+  w.draw(
+    `Start date: ${data.leaseStartDate.toLocaleDateString("en-CA", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    })}`
+  );
+  w.drawParagraph(format2229eTerm(data.leaseEndDate));
+  w.y -= 4;
+
+  w.draw("Part 5 — Rent", 13, true);
+  w.draw(`Total rent (lawful rent): ${formatCents(data.rentAmountCents)}`, 11, true);
+  w.draw(`Rent due day: ${data.rentDueDay} of each month`);
+  if (data.rentPaymentMethod?.trim()) {
+    w.draw(`Payment method: ${data.rentPaymentMethod.trim()}`);
+  }
+  if (data.partialRentCents && data.partialRentCents > 0) {
+    w.drawParagraph(
+      `Partial rent during first period: ${formatCents(data.partialRentCents)}${
+        data.partialRentStartDate && data.partialRentEndDate
+          ? ` (${data.partialRentStartDate.toLocaleDateString("en-CA")} to ${data.partialRentEndDate.toLocaleDateString("en-CA")})`
+          : ""
+      }`
+    );
+  }
+  if (data.rentDepositCents && data.rentDepositCents > 0) {
+    w.draw(`Rent deposit collected: ${formatCents(data.rentDepositCents)}`);
+  }
+  if (data.keyDepositCents && data.keyDepositCents > 0) {
+    w.draw(`Key deposit: ${formatCents(data.keyDepositCents)}`);
+  }
+  w.y -= 4;
+
+  w.draw("Part 6 — Services and Utilities", 13, true);
+  w.draw("Services included in rent:", 11, true);
+  for (const service of buildServicesIncluded(data)) {
+    w.drawParagraph(`• ${service}`);
+  }
+  w.draw("Utilities — payment responsibility:", 11, true);
+  for (const line of build2229eUtilitySummary(data)) {
+    w.drawParagraph(line);
+  }
+  w.y -= 4;
+
+  w.draw("Part 7 — Additional Terms", 13, true);
+  w.drawParagraph(buildPetsClause(data.petsAllowed));
+  w.drawParagraph(
+    data.smokingAllowed
+      ? "Smoking: permitted where allowed by law and building rules."
+      : "Smoking: not permitted in the rental unit unless otherwise agreed in writing."
+  );
+  if (data.additionalTerms?.trim()) {
+    w.drawParagraph(data.additionalTerms.trim());
+  } else {
+    w.drawParagraph("None beyond the standard terms of Form 2229E.");
+  }
+  w.y -= 8;
+
+  w.draw("Signatures", 13, true);
+  w.drawParagraph(
+    "Landlord and tenant acknowledge this draft summarizes the tenancy. Sign the official Ontario Standard Lease (2229E) for a binding agreement."
+  );
+  w.y -= 20;
+  w.draw("Landlord signature: _________________________    Date: ______________");
+  w.y -= 20;
+  w.draw("Tenant signature: ___________________________    Date: ______________");
+
+  const pdfBytes = await pdf.save();
+  const fileName = `2229e-${data.unitName.replace(/[^a-zA-Z0-9_-]/g, "_")}-${data.leaseStartDate.toISOString().slice(0, 10)}.pdf`;
+  return savePdfDocument(pdfBytes, fileName, {
+    userId: data.userId,
+    category: "lease",
+    propertyId: data.propertyId,
+    unitId: data.unitId,
+    tenantId: data.tenantId,
+    notes: `Ontario Standard Lease (2229E) draft for ${data.tenantName}`,
+    tags: "2229e",
+  });
+}
+
 type OnboardingPdfData = {
   userId: string;
   propertyId: string;
