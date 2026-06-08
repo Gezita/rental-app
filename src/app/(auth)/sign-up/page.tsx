@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signUpAction } from "@/app/actions/auth";
+import { getSessionUserId } from "@/lib/auth";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { SubmitButton } from "@/components/submit-button";
 import { FlashAlert } from "@/components/flash-alert";
@@ -19,6 +21,9 @@ export default async function SignUpPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const params = await searchParams;
+  const userId = await getSessionUserId();
+  if (userId) redirect("/dashboard");
+
   const errorMessage =
     params.error === "exists"
       ? "An account with this email already exists."

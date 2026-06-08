@@ -448,9 +448,14 @@ export default async function UnitDetailPage({
         </CardHeader>
         <CardContent className="space-y-4">
           {tenant && (
-            <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
-              <Button>Open lease wizard</Button>
-            </Link>
+            <div className="flex flex-wrap gap-3">
+              <Link href={`/properties/${propertyId}/units/${unitId}/lease/standard-lease`}>
+                <Button>Ontario Standard Lease (2229E)</Button>
+              </Link>
+              <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
+                <Button variant="outline">Zigglo summary lease</Button>
+              </Link>
+            </div>
           )}
           <form action={uploadLease} className="flex flex-wrap items-end gap-4 border-t border-border pt-4" encType="multipart/form-data">
             <div className="min-w-[240px] flex-1 space-y-2">

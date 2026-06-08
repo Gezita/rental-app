@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { signInAction } from "@/app/actions/auth";
+import { getSessionUserId } from "@/lib/auth";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { SubmitButton } from "@/components/submit-button";
 import { FlashAlert } from "@/components/flash-alert";
@@ -19,6 +21,20 @@ export default async function SignInPage({
   searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   const params = await searchParams;
+  const userId = await getSessionUserId();
+  if (userId) {
+    const next = params.next;
+    if (
+      next &&
+      next.startsWith("/") &&
+      !next.startsWith("//") &&
+      !next.startsWith("/sign-in") &&
+      !next.startsWith("/sign-up")
+    ) {
+      redirect(next);
+    }
+    redirect("/dashboard");
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">

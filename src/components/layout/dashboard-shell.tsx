@@ -9,7 +9,7 @@ import { NavLink } from "./nav-link";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
   const user = await requireUser().catch(() => null);
-  if (!user) redirect("/sign-in");
+  if (!user) redirect("/api/auth/clear-session");
 
   return (
     <div className="min-h-screen bg-background">

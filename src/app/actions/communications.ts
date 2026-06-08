@@ -12,6 +12,103 @@ import {
   buildAnnouncementEmailContent,
   buildLtbNoticeEmailContent,
 } from "@/lib/tenant-communications";
+import { getLtbNoticeWizardFields, resolveLtbNoticeForm } from "@/lib/ltb-notice-wizard";
+import { parseValidDate } from "@/lib/validation";
+import { requireUnit } from "@/lib/ownership";
+
+export async function generateLtbNoticeAction(formData: FormData) {
+  const user = await requireUser();
+  const propertyId = String(formData.get("propertyId") || "");
+  const unitId = String(formData.get("unitId") || "");
+  const tenantId = String(formData.get("tenantId") || "");
+  const formCode = String(formData.get("formCode") || "").trim().toUpperCase();
+  const notes = String(formData.get("notes") || "").trim() || undefined;
+
+  if (!propertyId || !unitId || !tenantId || !formCode) {
+    redirect("/notices/wizard?error=required");
+  }
+
+  const form = resolveLtbNoticeForm(formCode);
+  if (!form) {
+    redirect(`/notices/wizard?error=invalid_form&formCode=${formCode}`);
+  }
+
+  await requireProperty(user.id, propertyId);
+  const unit = await requireUnit(user.id, unitId);
+  if (unit.propertyId !== propertyId) {
+    redirect("/notices/wizard?error=required");
+  }
+
+  const tenant = await prisma.tenant.findFirst({
+    where: { id: tenantId, unitId, isActive: true },
+  });
+  if (!tenant) {
+    redirect("/notices/wizard?error=tenant");
+  }
+
+  const fieldValues: Record<string, string> = {};
+  for (const field of getLtbNoticeWizardFields(formCode)) {
+    const value = String(formData.get(field.name) || "").trim();
+    if (field.required && !value) {
+      redirect(`/notices/wizard?error=required&formCode=${formCode}&tenantId=${tenantId}&propertyId=${propertyId}&unitId=${unitId}`);
+    }
+    if (value) fieldValues[field.name] = value;
+  }
+
+  const serviceDate =
+    parseValidDate(fieldValues.serviceDate) ?? new Date();
+  const terminationDate = fieldValues.terminationDate
+    ? parseValidDate(fieldValues.terminationDate) ?? undefined
+    : undefined;
+  const effectiveDate = fieldValues.effectiveDate
+    ? parseValidDate(fieldValues.effectiveDate) ?? undefined
+    : undefined;
+
+  const settings = user.settings;
+  const landlordName = settings?.landlordName || user.name || user.email;
+  const property = unit.property;
+  const propertyAddress = [
+    property.addressLine1,
+    property.addressLine2,
+    property.city,
+    property.province,
+    property.postalCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const { generateLtbNoticePdf } = await import("@/lib/pdf");
+  const doc = await generateLtbNoticePdf({
+    userId: user.id,
+    propertyId,
+    unitId,
+    tenantId,
+    formCode: form.code,
+    formName: form.name,
+    landlordName,
+    landlordEmail: user.email,
+    tenantName: `${tenant.firstName} ${tenant.lastName}`,
+    tenantEmail: tenant.email ?? undefined,
+    tenantPhone: tenant.phone ?? undefined,
+    propertyName: property.name,
+    propertyAddress,
+    unitName: unit.name,
+    serviceDate,
+    effectiveDate,
+    terminationDate,
+    fieldValues,
+    notes,
+  });
+
+  await prisma.document.update({
+    where: { id: doc.id },
+    data: { ltbFormCode: form.code },
+  });
+
+  revalidatePath("/notices");
+  revalidatePath("/documents");
+  redirect(`/notices?uploaded=1&documentId=${doc.id}`);
+}
 
 export async function uploadLtbNoticeAction(formData: FormData) {
   const user = await requireUser();
