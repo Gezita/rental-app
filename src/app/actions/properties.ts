@@ -1,46 +1,126 @@
 "use server";
 
+import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { isReasonableBillCents, parseMoneyToCents } from "@/lib/money";
+import { isReasonableBillCents } from "@/lib/money";
 import { requireProperty, requireUnit, requireTenant } from "@/lib/ownership";
 import {
   MAX_XLSX_UPLOAD_BYTES,
-  parsePercentage,
-  parseRentDueDay,
-  parseUtilityType,
-  parseValidDate,
+  UTILITY_TYPES,
+  zCents,
+  zCheckbox,
+  zDate,
+  zMonth,
+  zOptionalCents,
+  zOptionalDate,
+  zOptionalEmail,
+  zOptionalString,
+  zPercentage,
+  zRentDueDay,
+  zRequiredString,
+  zUtilityType,
+  zYear,
 } from "@/lib/validation";
 
 type SpreadsheetUtilityType = "gas" | "water" | "electricity" | "internet" | "other";
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
+// ── Schemas ──────────────────────────────────────────────────────────────────
+
+const createPropertySchema = z.object({
+  name: zRequiredString,
+  addressLine1: zRequiredString,
+  city: zRequiredString,
+  province: zOptionalString,
+  postalCode: zOptionalString,
+});
+
+const updatePropertyFinancesSchema = z.object({
+  annualPropertyTax: zOptionalCents,
+  annualInsurancePremium: zOptionalCents,
+  mortgageInterestAnnual: zOptionalCents,
+  taxRollNumber: zOptionalString,
+  insuranceProvider: zOptionalString,
+});
+
+const createUnitSchema = z.object({
+  name: zRequiredString,
+  rentAmount: zCents,
+  rentDueDay: zRentDueDay,
+});
+
+const createTenantSchema = z.object({
+  firstName: zRequiredString,
+  lastName: zRequiredString,
+  email: zOptionalEmail,
+  phone: zOptionalString,
+  moveInDate: zOptionalDate,
+  sendWelcomeEmail: zCheckbox,
+});
+
+const updateTenantSchema = z.object({
+  firstName: zRequiredString,
+  lastName: zRequiredString,
+  email: zOptionalEmail,
+  phone: zOptionalString,
+});
+
+const moveOutTenantSchema = z.object({
+  moveOutDate: zOptionalDate,
+});
+
+const createUtilityBillSchema = z
+  .object({
+    utilityType: zUtilityType,
+    providerName: zOptionalString,
+    amount: zCents,
+    billingPeriodStart: zDate,
+    billingPeriodEnd: zDate,
+    dueDate: zOptionalDate,
+  })
+  .refine((d) => d.billingPeriodEnd >= d.billingPeriodStart, {
+    message: "Billing end date must be on or after start date",
+    path: ["billingPeriodEnd"],
+  });
+
+const importPreviewSchema = z.object({
+  utilityType: z.preprocess(
+    (v) => (typeof v === "string" && v ? v : "gas"),
+    z.enum(UTILITY_TYPES)
+  ),
+  billMonth: zMonth,
+  billYear: zYear,
+});
+
+const addBillDatabaseSchema = z.object({
+  utilityType: zUtilityType,
+  billMonth: zMonth,
+  billYear: zYear,
+  amount: zCents,
+});
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 function redirectWithActionError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
 }
 
+// ── Property Actions ──────────────────────────────────────────────────────────
+
 export async function createPropertyAction(formData: FormData) {
   const user = await requireUser();
-  const name = String(formData.get("name") || "").trim();
-  const addressLine1 = String(formData.get("addressLine1") || "").trim();
-  const city = String(formData.get("city") || "").trim();
-  const province = String(formData.get("province") || "").trim() || undefined;
-  const postalCode = String(formData.get("postalCode") || "").trim() || undefined;
 
-  if (!name || !addressLine1 || !city) redirect("/properties/new?error=required");
+  const parsed = createPropertySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/properties/new?error=required");
+
+  const { name, addressLine1, city, province, postalCode } = parsed.data;
 
   const property = await prisma.property.create({
-    data: {
-      userId: user.id,
-      name,
-      addressLine1,
-      city,
-      province,
-      postalCode,
-    },
+    data: { userId: user.id, name, addressLine1, city, province, postalCode },
   });
 
   revalidatePath("/properties");
@@ -51,24 +131,20 @@ export async function updatePropertyFinancesAction(propertyId: string, formData:
   const user = await requireUser();
   await requireProperty(user.id, propertyId);
 
-  const parseOptionalMoney = (key: string) => {
-    const raw = String(formData.get(key) || "").trim();
-    if (!raw) return null;
-    const cents = parseMoneyToCents(raw);
-    return cents >= 0 ? cents : null;
-  };
+  const parsed = updatePropertyFinancesSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect(`/properties/${propertyId}?error=finances`);
 
-  const insuranceProvider = String(formData.get("insuranceProvider") || "").trim() || null;
-  const taxRollNumber = String(formData.get("taxRollNumber") || "").trim() || null;
+  const { annualPropertyTax, annualInsurancePremium, mortgageInterestAnnual, taxRollNumber, insuranceProvider } =
+    parsed.data;
 
   await prisma.property.update({
     where: { id: propertyId },
     data: {
-      annualPropertyTaxCents: parseOptionalMoney("annualPropertyTax"),
-      annualInsurancePremiumCents: parseOptionalMoney("annualInsurancePremium"),
-      mortgageInterestAnnualCents: parseOptionalMoney("mortgageInterestAnnual"),
-      insuranceProvider,
-      taxRollNumber,
+      annualPropertyTaxCents: annualPropertyTax ?? null,
+      annualInsurancePremiumCents: annualInsurancePremium ?? null,
+      mortgageInterestAnnualCents: mortgageInterestAnnual ?? null,
+      insuranceProvider: insuranceProvider ?? null,
+      taxRollNumber: taxRollNumber ?? null,
     },
   });
 
@@ -93,25 +169,19 @@ export async function deletePropertyAction(propertyId: string, formData: FormDat
   redirect("/properties?deleted=1");
 }
 
+// ── Unit Actions ──────────────────────────────────────────────────────────────
+
 export async function createUnitAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
   await requireProperty(user.id, propertyId);
 
-  const name = String(formData.get("name") || "").trim();
-  const rentAmount = String(formData.get("rentAmount") || "0");
-  const rentDueDay = parseRentDueDay(String(formData.get("rentDueDay") || "1"));
-  const rentAmountCents = parseMoneyToCents(rentAmount);
+  const parsed = createUnitSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect(`/properties/${propertyId}/units/new?error=required`);
 
-  if (!name) redirect(`/properties/${propertyId}/units/new?error=required`);
-  if (rentAmountCents < 0) redirect(`/properties/${propertyId}/units/new?error=rent`);
+  const { name, rentAmount: rentAmountCents, rentDueDay } = parsed.data;
 
   const unit = await prisma.unit.create({
-    data: {
-      propertyId,
-      name,
-      rentAmountCents,
-      rentDueDay,
-    },
+    data: { propertyId, name, rentAmountCents, rentDueDay },
   });
 
   revalidatePath(`/properties/${propertyId}`);
@@ -122,25 +192,16 @@ export async function updateUnitAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await requireUnit(user.id, unitId);
 
-  const name = String(formData.get("name") || "").trim();
-  const rentAmount = String(formData.get("rentAmount") || "0");
-  const rentDueDay = parseRentDueDay(String(formData.get("rentDueDay") || "1"));
-  const rentAmountCents = parseMoneyToCents(rentAmount);
-
-  if (!name) {
+  const parsed = createUnitSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
     redirect(`/properties/${unit.propertyId}/units/${unitId}?error=unit`);
   }
-  if (rentAmountCents < 0) {
-    redirect(`/properties/${unit.propertyId}/units/${unitId}?error=rent`);
-  }
+
+  const { name, rentAmount: rentAmountCents, rentDueDay } = parsed.data;
 
   await prisma.unit.update({
     where: { id: unitId },
-    data: {
-      name,
-      rentAmountCents,
-      rentDueDay,
-    },
+    data: { name, rentAmountCents, rentDueDay },
   });
 
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
@@ -164,28 +225,21 @@ export async function deleteUnitAction(unitId: string, formData: FormData) {
   redirect(`/properties/${unit.propertyId}?deleted=unit`);
 }
 
+// ── Tenant Actions ────────────────────────────────────────────────────────────
+
 export async function createTenantAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await requireUnit(user.id, unitId);
   const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
 
-  const firstName = String(formData.get("firstName") || "").trim();
-  const lastName = String(formData.get("lastName") || "").trim();
-  const email = String(formData.get("email") || "").trim() || undefined;
-  const phone = String(formData.get("phone") || "").trim() || undefined;
-  const sendWelcomeEmail = formData.get("sendWelcomeEmail") === "on";
-
-  if (!firstName || !lastName) {
+  const parsed = createTenantSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
     redirect(`/properties/${unit.propertyId}/units/${unitId}?error=tenant`);
   }
 
-  const moveInDateStr = String(formData.get("moveInDate") || "").trim();
-  const moveInDate = moveInDateStr
-    ? parseValidDate(moveInDateStr) ?? redirectWithActionError(
-        `/properties/${unit.propertyId}/units/${unitId}`,
-        "Invalid move-in date"
-      )
-    : new Date();
+  const { firstName, lastName, email, phone, moveInDate: moveInDateParsed, sendWelcomeEmail } =
+    parsed.data;
+  const moveInDate = moveInDateParsed ?? new Date();
 
   const property = await prisma.property.findUnique({ where: { id: unit.propertyId } });
   if (!property) throw new Error("Property not found");
@@ -324,14 +378,12 @@ export async function updateTenantAction(tenantId: string, formData: FormData) {
   const user = await requireUser();
   const tenant = await requireTenant(user.id, tenantId);
 
-  const firstName = String(formData.get("firstName") || "").trim();
-  const lastName = String(formData.get("lastName") || "").trim();
-  const email = String(formData.get("email") || "").trim() || undefined;
-  const phone = String(formData.get("phone") || "").trim() || undefined;
-
-  if (!firstName || !lastName) {
+  const parsed = updateTenantSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
     redirect(`/properties/${tenant.unit.propertyId}/units/${tenant.unitId}?error=tenant`);
   }
+
+  const { firstName, lastName, email, phone } = parsed.data;
 
   await prisma.tenant.update({
     where: { id: tenantId },
@@ -352,13 +404,8 @@ export async function moveOutTenantAction(tenantId: string, formData: FormData) 
     redirect("/properties?error=Tenant%20not%20found");
   }
 
-  const moveOutDateStr = String(formData.get("moveOutDate") || "").trim();
-  const moveOutDate = moveOutDateStr
-    ? parseValidDate(moveOutDateStr) ?? redirectWithActionError(
-        `/properties/${tenant.unit.propertyId}/units/${tenant.unitId}`,
-        "Invalid move-out date"
-      )
-    : new Date();
+  const parsed = moveOutTenantSchema.safeParse(Object.fromEntries(formData));
+  const moveOutDate = parsed.success ? (parsed.data.moveOutDate ?? new Date()) : new Date();
 
   await prisma.tenant.update({
     where: { id: tenantId },
@@ -375,31 +422,22 @@ export async function moveOutTenantAction(tenantId: string, formData: FormData) 
   redirect(`/properties/${tenant.unit.propertyId}/units/${tenant.unitId}?saved=moved`);
 }
 
+// ── Utility Rule Actions ──────────────────────────────────────────────────────
+
 export async function saveUtilityRulesAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await requireUnit(user.id, unitId);
 
-  const types = ["gas", "water", "electricity", "internet", "other"] as const;
-
-  for (const type of types) {
+  for (const type of UTILITY_TYPES) {
     const tenantPays = formData.get(`${type}_tenantPays`) === "on";
     const includedInRent = formData.get(`${type}_includedInRent`) === "on";
-    const percentage = parsePercentage(String(formData.get(`${type}_percentage`) || "0"));
+    const percentageRaw = zPercentage.parse(formData.get(`${type}_percentage`) ?? "0");
+    const percentage = tenantPays && !includedInRent ? percentageRaw : 0;
 
     await prisma.utilityRule.upsert({
       where: { unitId_utilityType: { unitId, utilityType: type } },
-      create: {
-        unitId,
-        utilityType: type,
-        tenantPays,
-        includedInRent,
-        percentage: tenantPays && !includedInRent ? percentage : 0,
-      },
-      update: {
-        tenantPays,
-        includedInRent,
-        percentage: tenantPays && !includedInRent ? percentage : 0,
-      },
+      create: { unitId, utilityType: type, tenantPays, includedInRent, percentage },
+      update: { tenantPays, includedInRent, percentage },
     });
   }
 
@@ -412,29 +450,28 @@ export async function saveUtilityRulesAction(unitId: string, formData: FormData)
   redirect(`/properties/${unit.propertyId}/units/${unitId}/utilities?saved=1`);
 }
 
+// ── Utility Bill Actions ──────────────────────────────────────────────────────
+
 export async function createUtilityBillAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
   await requireProperty(user.id, propertyId);
 
-  const utilityType =
-    parseUtilityType(String(formData.get("utilityType") || "other")) ??
-    redirectWithActionError(`/properties/${propertyId}/utility-bills/new`, "Invalid utility type");
-  const providerName = String(formData.get("providerName") || "").trim() || undefined;
-  const amountCents = parseMoneyToCents(String(formData.get("amount") || "0"));
+  const parsed = createUtilityBillSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? "Invalid form data";
+    redirectWithActionError(`/properties/${propertyId}/utility-bills/new`, firstError);
+  }
+
+  const { utilityType, providerName, amount: amountCents, billingPeriodStart, billingPeriodEnd, dueDate } =
+    parsed.data;
+
   if (!isReasonableBillCents(amountCents)) {
     redirect(`/properties/${propertyId}/utility-bills/new?error=amount`);
   }
-  const billingPeriodStart =
-    parseValidDate(String(formData.get("billingPeriodStart") || "")) ??
-    redirectWithActionError(`/properties/${propertyId}/utility-bills/new`, "Invalid billing start date");
-  const billingPeriodEnd =
-    parseValidDate(String(formData.get("billingPeriodEnd") || "")) ??
-    redirectWithActionError(`/properties/${propertyId}/utility-bills/new`, "Invalid billing end date");
-  const dueDateStr = String(formData.get("dueDate") || "").trim();
-  const dueDate = dueDateStr ? parseValidDate(dueDateStr) ?? undefined : undefined;
-  const file = formData.get("file") as File | null;
 
+  const file = formData.get("file") as File | null;
   let documentId: string | undefined;
+
   if (file && file.size > 0) {
     try {
       const { saveUploadedFile } = await import("@/lib/files");
@@ -532,12 +569,7 @@ async function upsertSpreadsheetBill(
   row: { month: number; year: number; amountCents: number }
 ) {
   const existing = await prisma.utilityBill.findFirst({
-    where: {
-      propertyId,
-      utilityType,
-      billMonth: row.month,
-      billYear: row.year,
-    },
+    where: { propertyId, utilityType, billMonth: row.month, billYear: row.year },
   });
 
   if (existing) {
@@ -555,13 +587,7 @@ async function upsertSpreadsheetBill(
 
     await prisma.utilityBill.update({
       where: { id: existing.id },
-      data: {
-        amountCents: row.amountCents,
-        billingPeriodStart,
-        billingPeriodEnd,
-        dueDate,
-        source: "spreadsheet",
-      },
+      data: { amountCents: row.amountCents, billingPeriodStart, billingPeriodEnd, dueDate, source: "spreadsheet" },
     });
     await calculateUtilitySplits(existing.id, propertyId);
     return existing.id;
@@ -582,7 +608,6 @@ async function replaceSpreadsheetBills(
     await tx.utilityBill.deleteMany({
       where: { propertyId, utilityType, source: "spreadsheet" },
     });
-
     const created = [];
     for (const row of rows) {
       created.push(await createSpreadsheetBill(tx, propertyId, utilityType, row));
@@ -594,7 +619,6 @@ async function replaceSpreadsheetBills(
   for (const bill of bills) {
     await calculateUtilitySplits(bill.id, propertyId);
   }
-
   return bills.map((b) => b.id);
 }
 
@@ -602,12 +626,12 @@ export async function previewUtilityBillsImportAction(propertyId: string, formDa
   const user = await requireUser();
   await requireProperty(user.id, propertyId);
 
-  const utilityType =
-    parseUtilityType(String(formData.get("utilityType") || "gas")) ?? "gas";
-  const file = formData.get("file");
-  const fallbackMonth = parseInt(String(formData.get("billMonth") || ""), 10);
-  const fallbackYear = parseInt(String(formData.get("billYear") || ""), 10);
+  const parsed = importPreviewSchema.safeParse(Object.fromEntries(formData));
+  const utilityType = parsed.success ? parsed.data.utilityType : "gas";
+  const fallbackMonth = parsed.success ? parsed.data.billMonth : undefined;
+  const fallbackYear = parsed.success ? parsed.data.billYear : undefined;
 
+  const file = formData.get("file");
   if (!file || typeof file === "string") {
     return { error: "Choose an .xlsx file to upload." };
   }
@@ -620,8 +644,8 @@ export async function previewUtilityBillsImportAction(propertyId: string, formDa
 
   try {
     const rows = parseBillsFromXlsxBuffer(buffer, {
-      defaultMonth: fallbackMonth >= 1 && fallbackMonth <= 12 ? fallbackMonth : undefined,
-      defaultYear: fallbackYear >= 2000 ? fallbackYear : undefined,
+      defaultMonth: fallbackMonth,
+      defaultYear: fallbackYear,
       utilityType,
     });
 
@@ -629,11 +653,7 @@ export async function previewUtilityBillsImportAction(propertyId: string, formDa
       where: { propertyId, utilityType, source: "spreadsheet" },
     });
 
-    return {
-      rowCount: rows.length,
-      utilityType,
-      existingBillCount,
-    };
+    return { rowCount: rows.length, utilityType, existingBillCount };
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not read spreadsheet" };
   }
@@ -647,16 +667,14 @@ export async function importUtilityBillsXlsxAction(propertyId: string, formData:
     redirect(`/properties/${propertyId}/utility-bills/import?error=confirm_required`);
   }
 
-  const utilityType =
-    parseUtilityType(String(formData.get("utilityType") || "gas")) ??
-    redirectWithActionError(
-      `/properties/${propertyId}/utility-bills/import`,
-      "Invalid utility type"
-    );
-  const file = formData.get("file");
-  const fallbackMonth = parseInt(String(formData.get("billMonth") || ""), 10);
-  const fallbackYear = parseInt(String(formData.get("billYear") || ""), 10);
+  const parsed = importPreviewSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    redirect(`/properties/${propertyId}/utility-bills/import?error=invalid`);
+  }
 
+  const { utilityType, billMonth: fallbackMonth, billYear: fallbackYear } = parsed.data;
+
+  const file = formData.get("file");
   if (!file || typeof file === "string") {
     redirect(`/properties/${propertyId}/utility-bills/import?error=no_file`);
   }
@@ -670,8 +688,8 @@ export async function importUtilityBillsXlsxAction(propertyId: string, formData:
   let rows;
   try {
     rows = parseBillsFromXlsxBuffer(buffer, {
-      defaultMonth: fallbackMonth >= 1 && fallbackMonth <= 12 ? fallbackMonth : undefined,
-      defaultYear: fallbackYear >= 2000 ? fallbackYear : undefined,
+      defaultMonth: fallbackMonth,
+      defaultYear: fallbackYear,
       utilityType,
     });
   } catch (e) {
@@ -691,19 +709,12 @@ export async function addUtilityBillDatabaseAction(propertyId: string, formData:
   const user = await requireUser();
   await requireProperty(user.id, propertyId);
 
-  const utilityType =
-    parseUtilityType(String(formData.get("utilityType") || "gas")) ??
-    redirectWithActionError(
-      `/properties/${propertyId}/utility-bills/import`,
-      "Invalid utility type"
-    );
-  const month = parseInt(String(formData.get("billMonth") || ""), 10);
-  const year = parseInt(String(formData.get("billYear") || ""), 10);
-  const amountCents = parseMoneyToCents(String(formData.get("amount") || ""));
-
-  if (!month || month < 1 || month > 12 || !year) {
+  const parsed = addBillDatabaseSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
     redirect(`/properties/${propertyId}/utility-bills/import?error=month_year`);
   }
+
+  const { utilityType, billMonth: month, billYear: year, amount: amountCents } = parsed.data;
 
   await upsertSpreadsheetBill(propertyId, utilityType, { month, year, amountCents });
 

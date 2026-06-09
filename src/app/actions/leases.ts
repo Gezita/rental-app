@@ -1,12 +1,47 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { parseMoneyToCents } from "@/lib/money";
 import { generateLeasePdf } from "@/lib/pdf";
-import { parseValidDate } from "@/lib/validation";
+import {
+  zCheckbox,
+  zOptionalCents,
+  zOptionalDate,
+  zOptionalString,
+} from "@/lib/validation";
+
+// ── Shared lease fields ───────────────────────────────────────────────────────
+
+const leaseBaseSchema = z.object({
+  leaseStartDate: zOptionalDate,
+  leaseEndDate: zOptionalDate,
+  lastMonthRentDeposit: zCheckbox,
+  parkingIncluded: zCheckbox,
+  smokingAllowed: zCheckbox,
+  petsAllowed: z.preprocess(
+    (v) => (typeof v === "string" && v ? v : "no"),
+    z.enum(["yes", "no", "with_permission"])
+  ),
+  additionalTerms: zOptionalString,
+});
+
+const generateLeaseSchema = leaseBaseSchema.extend({
+  securityDeposit: zOptionalCents,
+});
+
+const generateStandardLeaseSchema = leaseBaseSchema.extend({
+  rentPaymentMethod: zOptionalString,
+  partialRent: zOptionalCents,
+  partialRentStartDate: zOptionalDate,
+  partialRentEndDate: zOptionalDate,
+  rentDeposit: zOptionalCents,
+  keyDeposit: zOptionalCents,
+});
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function generateStandardLease2229eAction(unitId: string, formData: FormData) {
   const user = await requireUser();
@@ -29,44 +64,32 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
     );
   }
 
-  const leaseStartStr = String(formData.get("leaseStartDate") || "");
-  const leaseEndStr = String(formData.get("leaseEndDate") || "").trim();
-  const leaseStartDate =
-    parseValidDate(leaseStartStr) ?? tenant.moveInDate ?? new Date();
-  const leaseEndDate = leaseEndStr ? parseValidDate(leaseEndStr) ?? undefined : undefined;
+  const parsed = generateStandardLeaseSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    redirect(
+      `/properties/${unit.propertyId}/units/${unitId}/lease/standard-lease?error=${encodeURIComponent("Invalid form data")}`
+    );
+  }
 
-  const rentPaymentMethod = String(formData.get("rentPaymentMethod") || "").trim() || undefined;
-  const partialRentRaw = String(formData.get("partialRent") || "").trim();
-  const partialRentCents = partialRentRaw ? parseMoneyToCents(partialRentRaw) : undefined;
-  const partialRentStartDate = parseValidDate(String(formData.get("partialRentStartDate") || "")) ?? undefined;
-  const partialRentEndDate = parseValidDate(String(formData.get("partialRentEndDate") || "")) ?? undefined;
+  const {
+    leaseStartDate,
+    leaseEndDate,
+    rentPaymentMethod,
+    partialRent: partialRentCents,
+    partialRentStartDate,
+    partialRentEndDate,
+    rentDeposit: rentDepositCents,
+    keyDeposit: keyDepositCents,
+    lastMonthRentDeposit,
+    parkingIncluded,
+    smokingAllowed,
+    petsAllowed,
+    additionalTerms,
+  } = parsed.data;
 
-  const rentDepositRaw = String(formData.get("rentDeposit") || "").trim();
-  const rentDepositCents = rentDepositRaw ? parseMoneyToCents(rentDepositRaw) : undefined;
-  const keyDepositRaw = String(formData.get("keyDeposit") || "").trim();
-  const keyDepositCents = keyDepositRaw ? parseMoneyToCents(keyDepositRaw) : undefined;
-
-  const servicesIncluded = formData
-    .getAll("servicesIncluded")
-    .map(String)
-    .filter(Boolean);
-  const utilitiesTenantPays = formData
-    .getAll("utilitiesTenantPays")
-    .map(String)
-    .filter(Boolean);
-  const utilitiesLandlordPays = formData
-    .getAll("utilitiesLandlordPays")
-    .map(String)
-    .filter(Boolean);
-
-  const lastMonthRentDeposit = formData.get("lastMonthRentDeposit") === "on";
-  const parkingIncluded = formData.get("parkingIncluded") === "on";
-  const smokingAllowed = formData.get("smokingAllowed") === "on";
-  const petsAllowed = String(formData.get("petsAllowed") || "no") as
-    | "yes"
-    | "no"
-    | "with_permission";
-  const additionalTerms = String(formData.get("additionalTerms") || "").trim() || undefined;
+  const servicesIncluded = formData.getAll("servicesIncluded").map(String).filter(Boolean);
+  const utilitiesTenantPays = formData.getAll("utilitiesTenantPays").map(String).filter(Boolean);
+  const utilitiesLandlordPays = formData.getAll("utilitiesLandlordPays").map(String).filter(Boolean);
 
   const settings = user.settings;
   const landlordName = settings?.landlordName || user.name || user.email;
@@ -96,7 +119,7 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
     propertyName: unit.property.name,
     propertyAddress,
     unitName: unit.name,
-    leaseStartDate,
+    leaseStartDate: leaseStartDate ?? tenant.moveInDate ?? new Date(),
     leaseEndDate,
     rentAmountCents: unit.rentAmountCents,
     rentDueDay: unit.rentDueDay,
@@ -118,7 +141,7 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
 
   const existingLease = unit.leases[0];
   const leaseData = {
-    leaseStartDate,
+    leaseStartDate: leaseStartDate ?? tenant.moveInDate ?? new Date(),
     leaseEndDate: leaseEndDate ?? null,
     rentAmountCents: unit.rentAmountCents,
     rentDueDay: unit.rentDueDay,
@@ -130,26 +153,15 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
   };
 
   if (existingLease) {
-    await prisma.lease.update({
-      where: { id: existingLease.id },
-      data: leaseData,
-    });
+    await prisma.lease.update({ where: { id: existingLease.id }, data: leaseData });
   } else {
-    await prisma.lease.create({
-      data: {
-        unitId: unit.id,
-        tenantId: tenant.id,
-        ...leaseData,
-      },
-    });
+    await prisma.lease.create({ data: { unitId: unit.id, tenantId: tenant.id, ...leaseData } });
   }
 
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}/lease/standard-lease`);
   revalidatePath("/documents");
-  redirect(
-    `/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`
-  );
+  redirect(`/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`);
 }
 
 export async function generateLeaseAction(unitId: string, formData: FormData) {
@@ -173,27 +185,23 @@ export async function generateLeaseAction(unitId: string, formData: FormData) {
     );
   }
 
-  const leaseStartStr = String(formData.get("leaseStartDate") || "");
-  const leaseEndStr = String(formData.get("leaseEndDate") || "").trim();
-  const leaseStartDate =
-    parseValidDate(leaseStartStr) ??
-    tenant.moveInDate ??
-    new Date();
-  const leaseEndDate = leaseEndStr ? parseValidDate(leaseEndStr) ?? undefined : undefined;
+  const parsed = generateLeaseSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    redirect(
+      `/properties/${unit.propertyId}/units/${unitId}/lease/wizard?error=${encodeURIComponent("Invalid form data")}`
+    );
+  }
 
-  const securityDepositRaw = String(formData.get("securityDeposit") || "").trim();
-  const securityDepositCents = securityDepositRaw
-    ? parseMoneyToCents(securityDepositRaw)
-    : undefined;
-
-  const lastMonthRentDeposit = formData.get("lastMonthRentDeposit") === "on";
-  const parkingIncluded = formData.get("parkingIncluded") === "on";
-  const smokingAllowed = formData.get("smokingAllowed") === "on";
-  const petsAllowed = String(formData.get("petsAllowed") || "no") as
-    | "yes"
-    | "no"
-    | "with_permission";
-  const additionalTerms = String(formData.get("additionalTerms") || "").trim() || undefined;
+  const {
+    leaseStartDate,
+    leaseEndDate,
+    securityDeposit: securityDepositCents,
+    lastMonthRentDeposit,
+    parkingIncluded,
+    smokingAllowed,
+    petsAllowed,
+    additionalTerms,
+  } = parsed.data;
 
   const settings = user.settings;
   const landlordName = settings?.landlordName || user.name || user.email;
@@ -220,7 +228,7 @@ export async function generateLeaseAction(unitId: string, formData: FormData) {
     tenantName: `${tenant.firstName} ${tenant.lastName}`,
     tenantEmail: tenant.email ?? undefined,
     tenantPhone: tenant.phone ?? undefined,
-    leaseStartDate,
+    leaseStartDate: leaseStartDate ?? tenant.moveInDate ?? new Date(),
     leaseEndDate,
     rentAmountCents: unit.rentAmountCents,
     rentDueDay: unit.rentDueDay,
@@ -235,7 +243,7 @@ export async function generateLeaseAction(unitId: string, formData: FormData) {
 
   const existingLease = unit.leases[0];
   const leaseData = {
-    leaseStartDate,
+    leaseStartDate: leaseStartDate ?? tenant.moveInDate ?? new Date(),
     leaseEndDate: leaseEndDate ?? null,
     rentAmountCents: unit.rentAmountCents,
     rentDueDay: unit.rentDueDay,
@@ -247,24 +255,13 @@ export async function generateLeaseAction(unitId: string, formData: FormData) {
   };
 
   if (existingLease) {
-    await prisma.lease.update({
-      where: { id: existingLease.id },
-      data: leaseData,
-    });
+    await prisma.lease.update({ where: { id: existingLease.id }, data: leaseData });
   } else {
-    await prisma.lease.create({
-      data: {
-        unitId: unit.id,
-        tenantId: tenant.id,
-        ...leaseData,
-      },
-    });
+    await prisma.lease.create({ data: { unitId: unit.id, tenantId: tenant.id, ...leaseData } });
   }
 
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}/lease/wizard`);
   revalidatePath("/documents");
-  redirect(
-    `/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`
-  );
+  redirect(`/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`);
 }
