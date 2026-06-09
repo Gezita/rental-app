@@ -28,6 +28,9 @@ async function detachDocumentReferences(documentId: string) {
       where: { invoiceDocumentId: documentId },
       data: { invoiceDocumentId: null },
     }),
+    prisma.inspectionItemPhoto.deleteMany({
+      where: { documentId },
+    }),
   ]);
 }
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { generateStandardLease2229eAction } from "@/app/actions/leases";
+import { saveLeaseDraftAction } from "@/app/actions/lease-signing";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
@@ -51,6 +52,7 @@ export default async function StandardLeaseWizardPage({
     include: {
       property: true,
       utilityRules: true,
+      leaseDraft: true,
       tenants: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
       leases: {
         where: { status: "active" },
@@ -71,6 +73,8 @@ export default async function StandardLeaseWizardPage({
   const defaultEnd = activeLease?.leaseEndDate;
   const utilityPreview = buildUtilityTerms(unit.utilityRules);
   const generateLease = generateStandardLease2229eAction.bind(null, unitId);
+  const saveDraft = saveLeaseDraftAction.bind(null, unitId);
+  const draft = unit.leaseDraft;
 
   const tenantPaysUtilities = unit.utilityRules
     .filter((rule) => rule.tenantPays && !rule.includedInRent)
@@ -102,9 +106,74 @@ export default async function StandardLeaseWizardPage({
       )}
 
       {!tenant ? (
-        <Alert variant="warning">
-          Add an active tenant on the unit page before generating a lease.
-        </Alert>
+        <Card>
+          <CardHeader>
+            <CardTitle>Part 3 — Tenant details</CardTitle>
+            <CardDescription>
+              Save tenant information here first. On the unit page, choose “From lease wizard” when
+              adding the tenant, then return to generate the lease PDF.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form action={saveDraft} className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  name="firstName"
+                  required
+                  defaultValue={draft?.firstName ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  name="lastName"
+                  required
+                  defaultValue={draft?.lastName ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  defaultValue={draft?.email ?? ""}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input id="phone" name="phone" defaultValue={draft?.phone ?? ""} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="moveInDate">Move-in date</Label>
+                <Input
+                  id="moveInDate"
+                  name="moveInDate"
+                  type="date"
+                  defaultValue={
+                    draft?.moveInDate?.toISOString().split("T")[0] ??
+                    defaultStart.toISOString().split("T")[0]
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="leaseStartDate">Lease start (optional)</Label>
+                <Input
+                  id="leaseStartDate"
+                  name="leaseStartDate"
+                  type="date"
+                  defaultValue={draft?.leaseStartDate?.toISOString().split("T")[0] ?? ""}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <SubmitButton pendingLabel="Saving…">Save tenant draft</SubmitButton>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       ) : (
         <>
           <Card className="border-primary/20 bg-primary-muted/20">

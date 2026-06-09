@@ -1,11 +1,15 @@
 import { cache } from "react";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { isLocalDataOnlyDeploy } from "./deploy-config";
 import { prisma } from "./db";
 import { createSessionToken, parseSessionToken } from "./session-token";
 
 const SESSION_COOKIE = "landlord_session";
 
 export const getSessionUserId = cache(async (): Promise<string | null> => {
+  if (isLocalDataOnlyDeploy()) return null;
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   const userId = await parseSessionToken(token);
@@ -22,6 +26,10 @@ export const getSessionUserId = cache(async (): Promise<string | null> => {
 });
 
 export const requireUser = cache(async () => {
+  if (isLocalDataOnlyDeploy()) {
+    redirect("/get-started");
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   const userId = await parseSessionToken(token);

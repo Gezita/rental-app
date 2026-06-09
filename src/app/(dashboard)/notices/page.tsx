@@ -140,7 +140,7 @@ export default async function NoticesPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ButtonLink href="/notices/wizard">Start LTB notice wizard</ButtonLink>
+          <ButtonLink href="/notices/wizard">Open notice wizard</ButtonLink>
         </CardContent>
       </Card>
 

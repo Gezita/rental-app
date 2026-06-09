@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LogOut, Menu, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
-import { mobileNavSections } from "@/lib/navigation";
+import { mobileNavSections, isNavItemActive } from "@/lib/navigation";
 import { BrandLogo } from "./brand-logo";
 import { navIconsByHref } from "./nav-icons";
 
@@ -16,9 +16,7 @@ type AppHeaderProps = {
 };
 
 function isNavActive(pathname: string, href: string, exact?: boolean) {
-  return exact
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`);
+  return isNavItemActive(pathname, href, exact);
 }
 
 export function AppHeader({ userName, userEmail }: AppHeaderProps) {
@@ -78,14 +76,18 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
                   {section.items.map((item) => {
                     const Icon = navIconsByHref[item.href];
                     const active = isNavActive(pathname, item.href, item.exact);
+                    const isChild = ["/tenants", "/utility-bills", "/inspections"].includes(
+                      item.href
+                    );
                     return (
                       <Link
-                        key={`${section.label}-${item.label}`}
+                        key={`${section.label}-${item.href}-${item.label}`}
                         href={item.href}
                         onClick={() => setOpen(false)}
                         aria-current={active ? "page" : undefined}
                         className={cn(
-                          "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+                          "flex items-center gap-3 py-2.5 text-sm transition-colors",
+                          isChild ? "pl-8 pr-4" : "px-4",
                           active
                             ? "bg-primary-muted/60 font-medium text-primary-hover"
                             : "text-foreground hover:bg-surface-muted"

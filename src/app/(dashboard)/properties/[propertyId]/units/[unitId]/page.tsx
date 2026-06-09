@@ -12,6 +12,7 @@ import {
   uploadLeaseAction,
 } from "@/app/actions/app";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
+import { AddTenantForm } from "@/components/add-tenant-form";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import {
@@ -53,6 +54,7 @@ export default async function UnitDetailPage({
       property: true,
       tenants: { where: { isActive: true } },
       utilityRules: true,
+      leaseDraft: true,
       statements: { orderBy: [{ statementYear: "desc" }, { statementMonth: "desc" }], take: 3 },
       leases: {
         where: { status: "active" },
@@ -73,6 +75,22 @@ export default async function UnitDetailPage({
 
   const tenant = unit.tenants[0];
   const activeLease = unit.leases[0];
+  const today = new Date().toISOString().split("T")[0];
+  const leaseWizardHref = `/properties/${propertyId}/units/${unitId}/lease/standard-lease`;
+  const leaseDraft = unit.leaseDraft
+    ? {
+        firstName: unit.leaseDraft.firstName ?? "",
+        lastName: unit.leaseDraft.lastName ?? "",
+        email: unit.leaseDraft.email ?? "",
+        phone: unit.leaseDraft.phone ?? "",
+        moveInDate:
+          unit.leaseDraft.moveInDate?.toISOString().split("T")[0] ??
+          unit.leaseDraft.leaseStartDate?.toISOString().split("T")[0] ??
+          today,
+        emergencyContactName: unit.leaseDraft.emergencyContactName ?? "",
+        emergencyContactPhone: unit.leaseDraft.emergencyContactPhone ?? "",
+      }
+    : null;
   const addTenant = createTenantAction.bind(null, unitId);
   const updateUnit = updateUnitAction.bind(null, unitId);
   const updateTenant = tenant ? updateTenantAction.bind(null, tenant.id) : null;
@@ -93,9 +111,9 @@ export default async function UnitDetailPage({
               ? query.emailed
                 ? "New tenant added. Onboarding package emailed and saved to documents."
                 : "New tenant added. Onboarding package saved to documents."
-              : null;
-
-  const today = new Date().toISOString().split("T")[0];
+              : query.saved === "lease_draft"
+                ? "Tenant details saved from lease wizard — use “From lease wizard” when adding a tenant."
+                : null;
 
   return (
     <div className="space-y-6">
@@ -174,6 +192,16 @@ export default async function UnitDetailPage({
                     View Lease
                   </Button>
                 </Link>
+                {activeLease.document.signatureStatus === "completed" && (
+                  <Badge variant="success" className="ml-2">
+                    Signed
+                  </Badge>
+                )}
+                {activeLease.document.signatureStatus === "pending" && (
+                  <Badge variant="warning" className="ml-2">
+                    Signing in progress
+                  </Badge>
+                )}
                 {activeLease.leaseEndDate && (
                   <p className="mt-2 text-sm text-muted">
                     Ends {activeLease.leaseEndDate.toLocaleDateString("en-CA")}
@@ -184,12 +212,9 @@ export default async function UnitDetailPage({
               <p className="text-sm text-muted">No lease on file</p>
             )}
             {tenant && (
-              <Link
-                href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}
-                className="mt-3 inline-block"
-              >
+              <Link href={leaseWizardHref} className="mt-3 inline-block">
                 <Button size="sm">
-                  {activeLease?.document ? "Regenerate lease" : "Create lease"}
+                  {activeLease?.document ? "Update lease" : "Create lease"}
                 </Button>
               </Link>
             )}
@@ -315,48 +340,14 @@ export default async function UnitDetailPage({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form action={addTenant} className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="new_firstName">First Name</Label>
-                  <Input id="new_firstName" name="firstName" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new_lastName">Last Name</Label>
-                  <Input id="new_lastName" name="lastName" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new_email">Email</Label>
-                  <Input id="new_email" name="email" type="email" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="new_phone">Phone</Label>
-                  <Input id="new_phone" name="phone" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="moveInDate">Move-in date</Label>
-                  <Input
-                    id="moveInDate"
-                    name="moveInDate"
-                    type="date"
-                    defaultValue={today}
-                    required
-                  />
-                </div>
-                <div className="flex items-center gap-2 md:col-span-2">
-                  <input
-                    id="sendWelcomeEmail"
-                    name="sendWelcomeEmail"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <Label htmlFor="sendWelcomeEmail" className="font-normal">
-                    Email onboarding package to new tenant
-                  </Label>
-                </div>
-                <div className="md:col-span-2">
-                  <Button type="submit">Add new tenant</Button>
-                </div>
-              </form>
+              <AddTenantForm
+                action={addTenant}
+                leaseDraft={leaseDraft}
+                leaseWizardHref={leaseWizardHref}
+                today={today}
+                submitLabel="Add new tenant"
+                showMoveOutNote
+              />
             </CardContent>
           </Card>
         </>
@@ -372,48 +363,12 @@ export default async function UnitDetailPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form action={addTenant} className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input id="firstName" name="firstName" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input id="lastName" name="lastName" required />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input id="phone" name="phone" />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="moveInDate">Move-in date</Label>
-                <Input
-                  id="moveInDate"
-                  name="moveInDate"
-                  type="date"
-                  defaultValue={today}
-                  required
-                />
-              </div>
-              <div className="flex items-center gap-2 md:col-span-2">
-                <input
-                  id="sendWelcomeEmailEmpty"
-                  name="sendWelcomeEmail"
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-border"
-                />
-                <Label htmlFor="sendWelcomeEmailEmpty" className="font-normal">
-                  Email onboarding package to new tenant
-                </Label>
-              </div>
-              <div className="md:col-span-2">
-                <Button type="submit">Add tenant</Button>
-              </div>
-            </form>
+            <AddTenantForm
+              action={addTenant}
+              leaseDraft={leaseDraft}
+              leaseWizardHref={leaseWizardHref}
+              today={today}
+            />
           </CardContent>
         </Card>
       )}
@@ -442,22 +397,35 @@ export default async function UnitDetailPage({
         <CardHeader>
           <CardTitle>Lease documents</CardTitle>
           <CardDescription>
-            Generate a lease from your utility rules, or upload a signed PDF (e.g. Ontario Standard
-            Lease).
+            Step through the official Ontario Standard Lease (2229E), download a PDF, send via
+            DocuSign, or upload a signed copy.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {tenant && (
-            <div className="flex flex-wrap gap-3">
-              <Link href={`/properties/${propertyId}/units/${unitId}/lease/standard-lease`}>
-                <Button>Ontario Standard Lease (2229E)</Button>
+          <div className="flex flex-wrap gap-3">
+            <Link href={leaseWizardHref}>
+              <Button>
+                {tenant ? "Open Ontario lease wizard" : "Start lease wizard (save tenant draft)"}
+              </Button>
+            </Link>
+            {activeLease?.document && (
+              <Link
+                href={`/properties/${propertyId}/units/${unitId}/lease/complete?documentId=${activeLease.document.id}`}
+              >
+                <Button variant="outline">Lease actions & download</Button>
               </Link>
-              <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
-                <Button variant="outline">Zigglo summary lease</Button>
-              </Link>
-            </div>
-          )}
-          <form action={uploadLease} className="flex flex-wrap items-end gap-4 border-t border-border pt-4" encType="multipart/form-data">
+            )}
+            <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
+              <Button variant="ghost" size="sm">
+                Zigglo summary lease
+              </Button>
+            </Link>
+          </div>
+          <form
+            action={uploadLease}
+            className="flex flex-wrap items-end gap-4 border-t border-border pt-4"
+            encType="multipart/form-data"
+          >
             <div className="min-w-[240px] flex-1 space-y-2">
               <Label htmlFor="file">Lease PDF or Image</Label>
               <Input id="file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" required />
@@ -471,7 +439,10 @@ export default async function UnitDetailPage({
             </Button>
           </form>
           {!tenant && (
-            <p className="mt-2 text-xs text-muted">Add a tenant first to attach the lease record.</p>
+            <p className="text-xs text-muted">
+              Fill tenant details in the lease wizard first, then add the tenant using “From lease
+              wizard” above.
+            </p>
           )}
         </CardContent>
       </Card>

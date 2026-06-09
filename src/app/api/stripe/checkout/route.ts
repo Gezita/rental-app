@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
+import { cloudDataBlockedResponse } from "@/lib/cloud-guard";
+import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { prisma } from "@/lib/db";
 import { getOutstandingCents } from "@/lib/payment-status";
 import { getAppUrl, getStripe, isStripeConfigured } from "@/lib/stripe";
 
 export async function POST(request: Request) {
+  if (isLocalDataOnlyDeploy()) return cloudDataBlockedResponse();
+
   if (!isStripeConfigured()) {
     return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
   }

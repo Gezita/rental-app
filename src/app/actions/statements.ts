@@ -62,6 +62,56 @@ export async function getUtilityBillsForMonthAction(
   return getUtilityBillsForGenerate(user.id, propertyId, month, year);
 }
 
+export type MissingUtilityBillsWarning = {
+  propertyId: string;
+  propertyName: string;
+  missingLabels: string[];
+};
+
+export async function getMissingUtilityBillsWarningsAction(
+  propertyId: string,
+  month: number,
+  year: number
+): Promise<MissingUtilityBillsWarning[]> {
+  const user = await requireUser();
+  const { getUtilityBillsForGenerate } = await import("@/lib/statement-extras");
+  const { UTILITY_TYPE_LABELS } = await import("@/lib/billing-constants");
+  const { requireProperty } = await import("@/lib/ownership");
+
+  const properties =
+    propertyId === "all"
+      ? await prisma.property.findMany({
+          where: { userId: user.id },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        })
+      : [
+          await requireProperty(user.id, propertyId).then((property) => ({
+            id: property.id,
+            name: property.name,
+          })),
+        ];
+
+  const warnings: MissingUtilityBillsWarning[] = [];
+
+  for (const property of properties) {
+    const bills = await getUtilityBillsForGenerate(user.id, property.id, month, year);
+    const missingLabels = bills
+      .filter((bill) => bill.status === "missing")
+      .map((bill) => UTILITY_TYPE_LABELS[bill.utilityType]);
+
+    if (missingLabels.length > 0) {
+      warnings.push({
+        propertyId: property.id,
+        propertyName: property.name,
+        missingLabels,
+      });
+    }
+  }
+
+  return warnings;
+}
+
 export async function generateStatementsAction(formData: FormData) {
   const user = await requireUser();
 
@@ -72,6 +122,7 @@ export async function generateStatementsAction(formData: FormData) {
 
   const { propertyId, month, year } = parsed.data;
   const unitIds = formData.getAll("unitIds").map(String).filter(Boolean);
+  const generateAll = propertyId === "all";
 
   try {
     const {
@@ -80,22 +131,41 @@ export async function generateStatementsAction(formData: FormData) {
       extraCostsToLineItems,
     } = await import("@/lib/statement-extras");
 
-    await prepareUtilityBillsFromForm(user.id, propertyId, month, year, formData);
+    if (!generateAll) {
+      await prepareUtilityBillsFromForm(user.id, propertyId, month, year, formData);
+    }
 
     const primaryUnitId = unitIds.length === 1 ? unitIds[0] : undefined;
-    const extraCosts = await parseExtraCostsFromForm(user.id, propertyId, primaryUnitId, formData);
+    const extraCosts = generateAll
+      ? []
+      : await parseExtraCostsFromForm(user.id, propertyId, primaryUnitId, formData);
     const extraLineItems = extraCostsToLineItems(extraCosts);
     const defaultExtras = extraLineItems.length > 0 ? { extraLineItems } : undefined;
 
     const { generateStatementsForProperty } = await import("@/lib/statements");
-    const statements = await generateStatementsForProperty(
-      user.id,
-      propertyId,
-      month,
-      year,
-      unitIds,
-      { defaultExtras }
-    );
+
+    const propertyIds = generateAll
+      ? (
+          await prisma.property.findMany({
+            where: { userId: user.id },
+            select: { id: true },
+            orderBy: { name: "asc" },
+          })
+        ).map((property) => property.id)
+      : [propertyId];
+
+    const statements = [];
+    for (const id of propertyIds) {
+      const created = await generateStatementsForProperty(
+        user.id,
+        id,
+        month,
+        year,
+        unitIds,
+        { defaultExtras }
+      );
+      statements.push(...created);
+    }
 
     if (statements.length === 0) {
       redirect(

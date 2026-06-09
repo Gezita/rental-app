@@ -1,16 +1,5 @@
 import Link from "next/link";
-import {
-  AlertCircle,
-  Banknote,
-  Building2,
-  CircleDollarSign,
-  Clock,
-  FileText,
-  Home,
-  PiggyBank,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { AlertCircle, Building2, Clock, FileText } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -23,12 +12,11 @@ import {
   PAYMENT_STATUS_LABELS,
 } from "@/lib/payment-status";
 import { aggregateStatementStats } from "@/lib/statement-stats";
-import { PaymentStatusBadge } from "@/components/payment-status-badge";
 import { ListRow } from "@/components/dashboard/list-row";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionHeading } from "@/components/dashboard/section-heading";
-import { StatCard } from "@/components/dashboard/stat-card";
+import { StatGroup } from "@/components/dashboard/stat-group";
 import { FlashAlert } from "@/components/flash-alert";
 import {
   Badge,
@@ -124,20 +112,24 @@ export default async function DashboardPage() {
 
   const leasesEndingSoon = await getLeasesEndingSoon(user.id, reminderDays);
 
-  const unpaidStatements = await prisma.statement.findMany({
+  const overdueStatements = await prisma.statement.findMany({
     where: {
       unit: { property: { userId: user.id } },
-      status: { in: ["sent", "overdue"] },
+      status: "overdue",
     },
-    include: {
-      tenant: true,
-      unit: { include: { property: true } },
+    select: {
+      totalDueCents: true,
+      paidAmountCents: true,
     },
-    orderBy: { dueDate: "asc" },
-    take: 5,
   });
 
-  const [utilityRuleCount, statementCount, tenantUnit] = await Promise.all([
+  const overdueCount = overdueStatements.length;
+  const overdueCents = overdueStatements.reduce(
+    (sum, statement) => sum + (statement.totalDueCents - statement.paidAmountCents),
+    0
+  );
+
+  const [utilityRuleCount, statementCount, utilityBillCount, tenantUnit] = await Promise.all([
     prisma.utilityRule.count({
       where: {
         unit: { property: { userId: user.id } },
@@ -148,6 +140,9 @@ export default async function DashboardPage() {
     }),
     prisma.statement.count({
       where: { unit: { property: { userId: user.id } } },
+    }),
+    prisma.utilityBill.count({
+      where: { property: { userId: user.id } },
     }),
     prisma.unit.findFirst({
       where: {
@@ -191,7 +186,7 @@ export default async function DashboardPage() {
       id: "bills",
       label: "Import monthly bill amounts",
       description: "Upload an .xlsx or enter amounts for the current month.",
-      done: propertiesMissingBills.length === 0 && portfolio.unitCount > 0,
+      done: utilityBillCount > 0,
       href: firstProperty
         ? `/properties/${firstProperty.id}/utility-bills/import`
         : "/utility-bills",
@@ -205,13 +200,15 @@ export default async function DashboardPage() {
     },
   ];
 
+  const showOnboardingChecklist = statementCount === 0 && utilityBillCount === 0;
+
   const displayName = user.name || user.email.split("@")[0];
   const vacantUnits = portfolio.unitCount - portfolio.occupiedUnitCount;
   const recentProperties = properties.slice(0, RECENT_PROPERTY_LIMIT);
   const needsAttention =
     propertiesMissingBills.length > 0 ||
     leasesEndingSoon.length > 0 ||
-    unpaidStatements.length > 0;
+    overdueCount > 0;
 
   const occupancyHint =
     portfolio.unitCount === 0
@@ -300,122 +297,91 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           )}
-          {unpaidStatements.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-danger" />
-                  <CardTitle>Unpaid statements</CardTitle>
+          {overdueCount > 0 && (
+            <Card className="border-danger/25">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-muted text-danger">
+                    <AlertCircle className="h-5 w-5" aria-hidden />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted">Overdue statements</p>
+                    <p className="text-xl font-semibold tabular-nums text-danger">
+                      {formatMoney(overdueCents)}{" "}
+                      <span className="text-base font-medium text-muted-foreground">
+                        · {overdueCount} statement{overdueCount === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <CardDescription>Sent or overdue — review and follow up</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {unpaidStatements.map((s) => (
-                    <ListRow key={s.id}>
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{s.statementNumber}</p>
-                        <p className="text-muted">
-                          {s.unit.property.name} / {s.unit.name}
-                        </p>
-                        <p className="mt-0.5 font-medium tabular-nums text-foreground">
-                          {formatMoney(s.totalDueCents - s.paidAmountCents)} due
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <PaymentStatusBadge
-                          status={s.status}
-                          totalDueCents={s.totalDueCents}
-                          paidAmountCents={s.paidAmountCents}
-                          stripeCheckoutSessionId={s.stripeCheckoutSessionId}
-                        />
-                        <Link href={`/statements/${s.id}`}>
-                          <Button variant="outline" size="sm">
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    </ListRow>
-                  ))}
-                </ul>
+                <Link href="/statements?payment=overdue">
+                  <Button variant="outline" size="sm">
+                    Review overdue
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           )}
         </section>
       )}
 
-      <section>
-        <SectionHeading>Portfolio</SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Properties"
-            value={portfolio.propertyCount}
-            icon={Building2}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Total units"
-            value={portfolio.unitCount}
-            hint={occupancyHint}
-            icon={Home}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Active tenants"
-            value={portfolio.activeTenantCount}
-            icon={Users}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Scheduled rent (all units)"
-            value={formatMoney(portfolio.scheduledRentCents)}
-            hint={rentHint}
-            icon={CircleDollarSign}
-            accent="primary"
-          />
-        </div>
-      </section>
+      <StatGroup
+        title="Portfolio"
+        items={[
+          {
+            label: "Properties",
+            value: portfolio.propertyCount,
+            href: "/properties",
+          },
+          {
+            label: "Total units",
+            value: portfolio.unitCount,
+            hint: occupancyHint,
+            href: "/properties",
+          },
+          {
+            label: "Active tenants",
+            value: portfolio.activeTenantCount,
+            href: "/tenants",
+          },
+          {
+            label: "Scheduled rent (all units)",
+            value: formatMoney(portfolio.scheduledRentCents),
+            hint: rentHint,
+          },
+        ]}
+      />
 
-      <section>
-        <SectionHeading>Financial overview</SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Outstanding (unpaid statements)"
-            value={formatMoney(outstandingCents)}
-            icon={Banknote}
-            accent={outstandingCents > 0 ? "danger" : "neutral"}
-            valueClassName={outstandingCents > 0 ? "text-danger" : undefined}
-            href={outstandingCents > 0 ? "/statements?payment=unpaid" : "/statements"}
-          />
-          <StatCard
-            label="Collected (lifetime)"
-            value={formatMoney(collectedCents)}
-            icon={PiggyBank}
-            accent="success"
-            valueClassName="text-success"
-            href="/statements?payment=paid"
-          />
-          <StatCard
-            label="Open maintenance"
-            value={openMaintenance}
-            icon={Wrench}
-            accent={openMaintenance > 0 ? "warning" : "neutral"}
-            href="/maintenance?status=open"
-          />
-          <StatCard
-            label="Draft statements"
-            value={paymentCounts.draft}
-            icon={FileText}
-            accent={paymentCounts.draft > 0 ? "warning" : "neutral"}
-            href={paymentCounts.draft > 0 ? "/statements?payment=draft" : "/statements"}
-          />
-        </div>
-      </section>
+      <StatGroup
+        title="Financial overview"
+        description="Rent collection and billing across all units"
+        items={[
+          {
+            label: "Outstanding (unpaid)",
+            value: formatMoney(outstandingCents),
+            valueClassName: outstandingCents > 0 ? "text-danger" : undefined,
+            href: outstandingCents > 0 ? "/statements?payment=unpaid" : "/statements",
+          },
+          {
+            label: "Collected (lifetime)",
+            value: formatMoney(collectedCents),
+            valueClassName: "text-success",
+            href: "/statements?payment=paid",
+          },
+          {
+            label: "Open maintenance",
+            value: openMaintenance,
+            href: "/maintenance?status=open",
+          },
+          {
+            label: "Draft statements",
+            value: paymentCounts.draft,
+            href: paymentCounts.draft > 0 ? "/statements?payment=draft" : "/statements",
+          },
+        ]}
+      />
 
-      <OnboardingChecklist steps={onboardingSteps} />
+      {showOnboardingChecklist && <OnboardingChecklist steps={onboardingSteps} />}
 
       <section>
         <Card>

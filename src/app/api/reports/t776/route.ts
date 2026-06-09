@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
+import { cloudDataBlockedResponse } from "@/lib/cloud-guard";
+import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { getSessionUserId } from "@/lib/auth";
 import { exportT776ForUser } from "@/lib/export-t776";
 
 export async function GET(request: Request) {
+  if (isLocalDataOnlyDeploy()) return cloudDataBlockedResponse();
+
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

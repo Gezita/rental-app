@@ -3,6 +3,7 @@
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
+import { assertCloudDataAllowed } from "@/lib/cloud-guard";
 import { prisma } from "@/lib/db";
 import { setSession, clearSession } from "@/lib/auth";
 import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
@@ -21,6 +22,7 @@ const signInSchema = z.object({
 });
 
 export async function signUpAction(formData: FormData) {
+  assertCloudDataAllowed();
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/sign-up?error=invalid");
 
@@ -59,6 +61,7 @@ function safeRedirectPath(next: string | undefined): string {
 }
 
 export async function signInAction(formData: FormData) {
+  assertCloudDataAllowed();
   const parsed = signInSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/sign-in?error=invalid");
 
@@ -87,6 +90,7 @@ export async function signInAction(formData: FormData) {
 }
 
 export async function signOutAction() {
+  assertCloudDataAllowed();
   await clearSession();
   redirect("/sign-in");
 }

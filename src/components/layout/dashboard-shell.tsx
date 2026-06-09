@@ -1,13 +1,18 @@
 import { requireUser } from "@/lib/auth";
+import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { dashboardNavItems } from "@/lib/navigation";
 import { LogOut } from "lucide-react";
 import { redirect } from "next/navigation";
 import { signOutAction } from "@/app/actions/auth";
 import { AppHeader } from "./app-header";
 import { BrandLogo } from "./brand-logo";
-import { NavLink } from "./nav-link";
+import { NavGroup } from "./nav-link";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
+  if (isLocalDataOnlyDeploy()) {
+    redirect("/get-started");
+  }
+
   const user = await requireUser().catch(() => null);
   if (!user) redirect("/api/auth/clear-session");
 
@@ -20,12 +25,7 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
           </div>
           <nav className="flex-1 space-y-1 p-3">
             {dashboardNavItems.map((item) => (
-              <NavLink
-                key={item.href}
-                href={item.href}
-                label={item.label}
-                exact={item.exact}
-              />
+              <NavGroup key={item.href} item={item} />
             ))}
           </nav>
           <div className="border-t border-border p-4">

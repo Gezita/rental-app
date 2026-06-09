@@ -161,7 +161,9 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}/lease/standard-lease`);
   revalidatePath("/documents");
-  redirect(`/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`);
+  redirect(
+    `/properties/${unit.propertyId}/units/${unitId}/lease/complete?documentId=${doc.id}`
+  );
 }
 
 export async function generateLeaseAction(unitId: string, formData: FormData) {
@@ -263,5 +265,7 @@ export async function generateLeaseAction(unitId: string, formData: FormData) {
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}`);
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}/lease/wizard`);
   revalidatePath("/documents");
-  redirect(`/properties/${unit.propertyId}/units/${unitId}?saved=lease&documentId=${doc.id}`);
+  redirect(
+    `/properties/${unit.propertyId}/units/${unitId}/lease/complete?documentId=${doc.id}`
+  );
 }

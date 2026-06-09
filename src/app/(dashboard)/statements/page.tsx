@@ -9,7 +9,7 @@ import { MONTH_NAMES } from "@/lib/statements";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
-import { StatCard } from "@/components/dashboard/stat-card";
+import { StatGroup } from "@/components/dashboard/stat-group";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { StatementsPaymentFilter } from "@/components/statements-payment-filter";
 import { StatementsUnitFilter } from "@/components/statements-unit-filter";
@@ -133,34 +133,33 @@ export default async function StatementsPage({
       )}
 
       {totalStatementCount > 0 && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Outstanding (unpaid statements)"
-            value={formatMoney(outstandingCents)}
-            accent={outstandingCents > 0 ? "danger" : "success"}
-            valueClassName={outstandingCents > 0 ? "text-danger" : "text-success"}
-            href={outstandingCents > 0 ? "/statements?payment=unpaid" : undefined}
-          />
-          <StatCard
-            label="Collected (lifetime)"
-            value={formatMoney(collectedCents)}
-            accent="success"
-            valueClassName="text-success"
-            href="/statements?payment=paid"
-          />
-          <StatCard
-            label="Draft statements"
-            value={String(draftCount)}
-            href={draftCount > 0 ? "/statements?payment=draft" : undefined}
-          />
-          <StatCard
-            label="Overdue"
-            value={String(overdueCount)}
-            accent={overdueCount > 0 ? "danger" : "neutral"}
-            valueClassName={overdueCount > 0 ? "text-danger" : undefined}
-            href={overdueCount > 0 ? "/statements?payment=overdue" : undefined}
-          />
-        </div>
+        <StatGroup
+          items={[
+            {
+              label: "Outstanding (unpaid)",
+              value: formatMoney(outstandingCents),
+              valueClassName: outstandingCents > 0 ? "text-danger" : "text-success",
+              href: outstandingCents > 0 ? "/statements?payment=unpaid" : undefined,
+            },
+            {
+              label: "Collected (lifetime)",
+              value: formatMoney(collectedCents),
+              valueClassName: "text-success",
+              href: "/statements?payment=paid",
+            },
+            {
+              label: "Draft statements",
+              value: String(draftCount),
+              href: draftCount > 0 ? "/statements?payment=draft" : undefined,
+            },
+            {
+              label: "Overdue",
+              value: String(overdueCount),
+              valueClassName: overdueCount > 0 ? "text-danger" : undefined,
+              href: overdueCount > 0 ? "/statements?payment=overdue" : undefined,
+            },
+          ]}
+        />
       )}
 
       <Card>

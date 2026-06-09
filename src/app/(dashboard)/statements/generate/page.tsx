@@ -129,9 +129,9 @@ export default async function GenerateStatementsPage({
             </CardHeader>
             <CardContent>
               <p className="mb-4 text-sm text-muted">
-                Choose the property, month, and which units need a statement. Attach utility bill
-                documents, add optional extra costs, and split property bills across units using each
-                unit&apos;s utility rules.
+                Choose a property (or all properties), month, and which units need a statement.
+                Missing utility bills show as a warning — you can generate rent-only drafts now and
+                add bill amounts later under Utility bills.
               </p>
               <GenerateStatementsForm
                 action={generateStatementsAction}
