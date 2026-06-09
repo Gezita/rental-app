@@ -6,7 +6,7 @@ import {
   addUtilityBillDatabaseAction,
   importUtilityBillsXlsxAction,
   previewUtilityBillsImportAction,
-} from "@/app/actions/app";
+} from "@/app/actions";
 import {
   MONTH_NAMES,
   SPREADSHEET_UTILITY_OPTIONS,
@@ -225,7 +225,7 @@ export default async function UtilityBillsImportPage({
           View all bills
         </Link>
         {" · "}
-        <Link href="/statements/generate" className="underline">
+        <Link href="/billing/statements/generate" className="underline">
           Generate statements
         </Link>
       </p>

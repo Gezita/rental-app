@@ -7,10 +7,6 @@ export function isDocuSignConfigured() {
   );
 }
 
-export function isStripeIntegrationConfigured() {
-  return Boolean(process.env.STRIPE_SECRET_KEY);
-}
-
 export type DocuSignRecipient = {
   name: string;
   email: string;

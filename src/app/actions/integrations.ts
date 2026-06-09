@@ -23,7 +23,7 @@ export async function updateIntegrationsAction(formData: FormData) {
     },
   });
 
-  revalidatePath("/integrations");
+  revalidatePath("/settings/integrations");
   revalidatePath("/settings");
-  redirect("/integrations?saved=1");
+  redirect("/settings/integrations?saved=1");
 }

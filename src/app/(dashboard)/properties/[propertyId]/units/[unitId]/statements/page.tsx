@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { MONTH_NAMES } from "@/lib/statements";
+import { MONTH_NAMES } from "@/lib/billing-constants";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
 
@@ -42,7 +42,7 @@ export default async function UnitStatementsPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>All Statements</CardTitle>
-          <Link href={`/statements/generate?propertyId=${propertyId}&unitId=${unitId}`}>
+          <Link href={`/billing/statements/generate?propertyId=${propertyId}&unitId=${unitId}`}>
             <Button size="sm">Generate for {unit.name}</Button>
           </Link>
         </CardHeader>
@@ -74,7 +74,7 @@ export default async function UnitStatementsPage({
                       </Badge>
                     </Td>
                     <Td>
-                      <Link href={`/statements/${s.id}`}>
+                      <Link href={`/billing/statements/${s.id}`}>
                         <Button variant="outline" size="sm">
                           View
                         </Button>

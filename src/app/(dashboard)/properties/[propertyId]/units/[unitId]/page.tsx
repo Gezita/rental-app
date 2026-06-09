@@ -10,7 +10,7 @@ import {
   updateTenantAction,
   updateUnitAction,
   uploadLeaseAction,
-} from "@/app/actions/app";
+} from "@/app/actions";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
 import { AddTenantForm } from "@/components/add-tenant-form";
 import { FlashAlert } from "@/components/flash-alert";
@@ -475,7 +475,7 @@ export default async function UnitDetailPage({
                       <Badge variant={s.status === "paid" ? "success" : "secondary"}>{s.status}</Badge>
                     </Td>
                     <Td>
-                      <Link href={`/statements/${s.id}`}>
+                      <Link href={`/billing/statements/${s.id}`}>
                         <Button variant="outline" size="sm">
                           View
                         </Button>

@@ -1,9 +1,9 @@
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/server/emails/send";
 import { formatMoney } from "@/lib/money";
 import { generateStatementPdf } from "@/lib/pdf";
-import { MONTH_NAMES } from "@/lib/statements";
+import { MONTH_NAMES } from "@/lib/billing-constants";
 import { buildStatementEmailContent } from "@/lib/tenant-communications";
 import { getAppUrl, isStripeConfigured } from "@/lib/stripe";
 

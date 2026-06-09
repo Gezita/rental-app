@@ -1,26 +1,18 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
 import { LogOut, Menu, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
-import { mobileNavSections, isNavItemActive } from "@/lib/navigation";
+import { dashboardNavItems } from "@/lib/navigation";
 import { BrandLogo } from "./brand-logo";
-import { navIconsByHref } from "./nav-icons";
+import { MobileNavGroup } from "./nav-link";
 
 type AppHeaderProps = {
   userName?: string | null;
   userEmail: string;
 };
 
-function isNavActive(pathname: string, href: string, exact?: boolean) {
-  return isNavItemActive(pathname, href, exact);
-}
-
 export function AppHeader({ userName, userEmail }: AppHeaderProps) {
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -68,38 +60,30 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
             </div>
 
             <div className="py-2">
-              {mobileNavSections.map((section) => (
-                <div key={section.label}>
-                  <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
-                    {section.label}
-                  </p>
-                  {section.items.map((item) => {
-                    const Icon = navIconsByHref[item.href];
-                    const active = isNavActive(pathname, item.href, item.exact);
-                    const isChild = ["/tenants", "/utility-bills", "/inspections"].includes(
-                      item.href
-                    );
-                    return (
-                      <Link
-                        key={`${section.label}-${item.href}-${item.label}`}
-                        href={item.href}
-                        onClick={() => setOpen(false)}
-                        aria-current={active ? "page" : undefined}
-                        className={cn(
-                          "flex items-center gap-3 py-2.5 text-sm transition-colors",
-                          isChild ? "pl-8 pr-4" : "px-4",
-                          active
-                            ? "bg-primary-muted/60 font-medium text-primary-hover"
-                            : "text-foreground hover:bg-surface-muted"
-                        )}
-                      >
-                        {Icon ? <Icon className="h-4 w-4 text-muted" /> : null}
-                        {item.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              ))}
+              <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+                Navigate
+              </p>
+              {dashboardNavItems
+                .filter((item) => item.href !== "/settings")
+                .map((item) => (
+                  <MobileNavGroup
+                    key={item.href}
+                    item={item}
+                    onNavigate={() => setOpen(false)}
+                  />
+                ))}
+              <p className="px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted">
+                Account
+              </p>
+              {dashboardNavItems
+                .filter((item) => item.href === "/settings")
+                .map((item) => (
+                  <MobileNavGroup
+                    key={item.href}
+                    item={item}
+                    onNavigate={() => setOpen(false)}
+                  />
+                ))}
             </div>
 
             <div className="border-t border-border-subtle p-2">

@@ -1,7 +1,4 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { prisma } from "./db";
 import type { DocumentCategory } from "@prisma/client";
 import {
   buildPetsClause,
@@ -11,7 +8,7 @@ import {
 } from "./lease-wizard";
 import { type T776Report } from "./t776-report";
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
+import { saveDocumentBuffer } from "@/lib/storage";
 
 type LineItem = {
   description: string;
@@ -155,26 +152,16 @@ async function savePdfDocument(
     tags?: string;
   }
 ) {
-  const userDir = path.join(process.cwd(), UPLOAD_DIR, options.userId);
-  await mkdir(userDir, { recursive: true });
-  const uniqueName = `${Date.now()}-${fileName}`;
-  const filePath = path.join(userDir, uniqueName);
-  await writeFile(filePath, pdfBytes);
-
-  return prisma.document.create({
-    data: {
-      userId: options.userId,
-      propertyId: options.propertyId,
-      unitId: options.unitId,
-      tenantId: options.tenantId,
-      category: options.category,
-      fileName,
-      filePath: path.join(UPLOAD_DIR, options.userId, uniqueName),
-      fileMimeType: "application/pdf",
-      fileSizeBytes: pdfBytes.length,
-      notes: options.notes,
-      tags: options.tags,
-    },
+  return saveDocumentBuffer(pdfBytes, {
+    userId: options.userId,
+    category: options.category,
+    fileName,
+    mimeType: "application/pdf",
+    propertyId: options.propertyId,
+    unitId: options.unitId,
+    tenantId: options.tenantId,
+    notes: options.notes,
+    tags: options.tags,
   });
 }
 

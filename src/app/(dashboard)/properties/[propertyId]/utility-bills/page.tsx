@@ -4,7 +4,7 @@ import type { UtilityType } from "@prisma/client";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { UTILITY_TYPE_LABELS } from "@/lib/statements";
+import { UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { PageHeader } from "@/components/dashboard/page-header";
 import {
@@ -78,7 +78,7 @@ export default async function UtilityBillsPage({
         actions={
           <>
             <Link href={`/properties/${propertyId}/utility-bills/import`}>
-              <Button>Import amounts (.xlsx)</Button>
+              <Button>Import bill spreadsheet</Button>
             </Link>
             <Link href={`/properties/${propertyId}/utility-bills/new`}>
               <Button variant="outline">Upload bill PDF</Button>

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { createUnitAction } from "@/app/actions/app";
+import { createUnitAction } from "@/app/actions";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from "@/components/ui";
 
@@ -47,7 +47,7 @@ export default async function NewUnitPage({
                 <Input id="rentDueDay" name="rentDueDay" type="number" min="1" max="31" defaultValue="1" required />
               </div>
             </div>
-            <Button type="submit">Create Unit</Button>
+            <Button type="submit">Add unit</Button>
           </form>
         </CardContent>
       </Card>

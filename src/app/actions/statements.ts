@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { formatMoney } from "@/lib/money";
 import { requireStatement } from "@/lib/ownership";
 import {
   zMonth,
@@ -68,6 +69,77 @@ export type MissingUtilityBillsWarning = {
   missingLabels: string[];
 };
 
+export async function previewUtilityBillSplitsAction(
+  propertyId: string,
+  utilityType: string,
+  amount: string
+) {
+  const user = await requireUser();
+  const { requireProperty } = await import("@/lib/ownership");
+  const { parseUtilityType } = await import("@/lib/validation");
+  const { computeUtilitySplitPreview } = await import("@/lib/utility-split-preview");
+
+  await requireProperty(user.id, propertyId);
+  const parsedType = parseUtilityType(utilityType);
+  if (!parsedType) return { rows: [], totalAmountCents: 0 };
+
+  const amountCents = parseMoneyToCents(amount || "0");
+  if (amountCents <= 0) return { rows: [], totalAmountCents: 0 };
+
+  const units = await prisma.unit.findMany({
+    where: { propertyId },
+    include: { utilityRules: true },
+    orderBy: { name: "asc" },
+  });
+
+  return {
+    rows: computeUtilitySplitPreview(amountCents, parsedType, units),
+    totalAmountCents: amountCents,
+  };
+}
+
+export async function previewStatementsAction(
+  propertyId: string,
+  month: number,
+  year: number,
+  unitIds: string[]
+) {
+  const user = await requireUser();
+  const { previewStatementsForUnits } = await import("@/lib/statement-preview");
+
+  if (unitIds.length === 0) return [];
+
+  if (propertyId === "all") {
+    const units = await prisma.unit.findMany({
+      where: {
+        id: { in: unitIds },
+        property: { userId: user.id },
+      },
+      select: { id: true },
+    });
+    return previewStatementsForUnits(
+      user.id,
+      units.map((unit) => unit.id),
+      month,
+      year
+    );
+  }
+
+  const { requireProperty } = await import("@/lib/ownership");
+  await requireProperty(user.id, propertyId);
+
+  return previewStatementsForUnits(user.id, unitIds, month, year);
+}
+
+export async function getUtilitySplitValidationAction(propertyId: string) {
+  const user = await requireUser();
+  const { requireProperty } = await import("@/lib/ownership");
+  const { getUtilitySplitValidationIssues } = await import("@/lib/utility-split-validation");
+
+  await requireProperty(user.id, propertyId);
+  return getUtilitySplitValidationIssues(propertyId);
+}
+
 export async function getMissingUtilityBillsWarningsAction(
   propertyId: string,
   month: number,
@@ -117,7 +189,7 @@ export async function generateStatementsAction(formData: FormData) {
 
   const parsed = generateStatementsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    redirect("/statements/generate?error=Invalid%20form%20data");
+    redirect("/billing/statements/generate?error=Invalid%20form%20data");
   }
 
   const { propertyId, month, year } = parsed.data;
@@ -169,19 +241,20 @@ export async function generateStatementsAction(formData: FormData) {
 
     if (statements.length === 0) {
       redirect(
-        "/statements/generate?error=No%20statements%20created.%20Select%20units%20with%20active%20tenants."
+        "/billing/statements/generate?error=No%20statements%20created.%20Select%20units%20with%20active%20tenants."
       );
     }
 
-    const unitNames = statements.map((s) => s.unit.name).join(", ");
-    revalidatePath("/statements");
-    revalidatePath("/statements/generate");
-    redirect(`/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
+    const unitNames = statements.map((statement) => statement.unit.name).join(", ");
+
+    revalidatePath("/billing/statements");
+    revalidatePath("/billing/statements/generate");
+    redirect(`/billing/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
   } catch (error) {
     const message = encodeURIComponent(
       error instanceof Error ? error.message : "Could not generate statements"
     );
-    redirect(`/statements/generate?error=${message}`);
+    redirect(`/billing/statements/generate?error=${message}`);
   }
 }
 
@@ -191,7 +264,7 @@ export async function createPastStatementAction(formData: FormData) {
   const parsed = createPastStatementSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const firstError = parsed.error.issues[0]?.message ?? "Invalid form data";
-    redirect(`/statements/generate?error=${encodeURIComponent(firstError)}`);
+    redirect(`/billing/statements/generate?error=${encodeURIComponent(firstError)}`);
   }
 
   const { unitId, month, year, paymentStatus, paymentMethod, paymentDate, partialAmount } =
@@ -211,6 +284,9 @@ export async function createPastStatementAction(formData: FormData) {
       paymentMethod,
     };
   } else {
+    if (!partialAmount) {
+      redirect("/billing/statements/generate?error=Partial%20payment%20requires%20an%20amount");
+    }
     initialPayment = {
       status: "partial",
       amountCents: partialAmount!,
@@ -228,17 +304,83 @@ export async function createPastStatementAction(formData: FormData) {
     markAsSent: true,
   });
 
-  revalidatePath("/statements");
-  revalidatePath(`/statements/${statement!.id}`);
-  redirect(`/statements/${statement!.id}?created=past`);
+  revalidatePath("/billing/statements");
+  revalidatePath(`/billing/statements/${statement!.id}`);
+  redirect(`/billing/statements/${statement!.id}?created=past`);
+}
+
+export async function generateDraftStatementPdfAction(statementId: string) {
+  const user = await requireUser();
+  const statement = await requireStatement(user.id, statementId);
+
+  if (statement.status === "cancelled") {
+    redirect(`/billing/statements/${statementId}?error=${encodeURIComponent("Cancelled statements cannot be previewed")}`);
+  }
+
+  const full = await prisma.statement.findFirst({
+    where: { id: statementId, unit: { property: { userId: user.id } } },
+    include: {
+      tenant: true,
+      unit: { include: { property: true } },
+      lineItems: true,
+    },
+  });
+  if (!full) throw new Error("Statement not found");
+
+  const settings = user.settings;
+  const landlordName = settings?.landlordName || user.name || user.email;
+  const { MONTH_NAMES } = await import("@/lib/billing-constants");
+  const { generateStatementPdf } = await import("@/lib/pdf");
+
+  const monthLabel = `${MONTH_NAMES[full.statementMonth - 1]} ${full.statementYear}`;
+  const propertyAddress = [
+    full.unit.property.addressLine1,
+    full.unit.property.city,
+    full.unit.property.province,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const doc = await generateStatementPdf({
+    userId: user.id,
+    propertyId: full.unit.propertyId,
+    unitId: full.unitId,
+    tenantId: full.tenantId,
+    statementId: full.id,
+    landlordName,
+    propertyAddress,
+    unitName: full.unit.name,
+    tenantName: `${full.tenant.firstName} ${full.tenant.lastName}`,
+    statementNumber: full.statementNumber,
+    statementMonth: monthLabel,
+    issueDate: full.issueDate.toLocaleDateString("en-CA"),
+    dueDate: full.dueDate.toLocaleDateString("en-CA"),
+    lineItems: full.lineItems.map((li) => ({
+      description: li.description,
+      amountCents: li.amountCents,
+      note: li.calculationNote ?? undefined,
+    })),
+    totalDueCents: full.totalDueCents,
+    paymentInstructions: settings?.paymentInstructions ?? undefined,
+    notes: full.notes ?? undefined,
+  });
+
+  await prisma.statement.update({
+    where: { id: statementId },
+    data: { pdfDocumentId: doc.id },
+  });
+
+  revalidatePath(`/billing/statements/${statementId}`);
+  redirect(`/api/documents/${doc.id}`);
 }
 
 export async function sendStatementAction(statementId: string) {
   const user = await requireUser();
   const { sendStatementById } = await import("@/lib/statement-send");
   await sendStatementById(statementId, user.id);
-  revalidatePath(`/statements/${statementId}`);
-  revalidatePath("/statements");
+  revalidatePath(`/billing/statements/${statementId}`);
+  revalidatePath("/billing/statements");
+  redirect(`/billing/statements/${statementId}?sent=1`);
 }
 
 export async function recordStatementPaymentAction(statementId: string, formData: FormData) {
@@ -247,21 +389,26 @@ export async function recordStatementPaymentAction(statementId: string, formData
 
   const parsed = recordPaymentSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    redirect(`/statements/${statementId}?error=invalid`);
+    redirect(`/billing/statements/${statementId}?error=invalid`);
   }
 
   const { paymentType, amount, paymentDate, paymentMethod, referenceNumber } = parsed.data;
 
   const outstanding = statement.totalDueCents - statement.paidAmountCents;
   if (outstanding <= 0) {
-    redirect(`/statements/${statementId}?error=already_paid`);
+    redirect(`/billing/statements/${statementId}?error=already_paid`);
   }
 
   if (paymentType === "partial" && !amount) {
-    redirect(`/statements/${statementId}?error=amount_required`);
+    redirect(`/billing/statements/${statementId}?error=amount_required`);
   }
 
   const amountCents = paymentType === "partial" ? amount! : outstanding;
+  if (paymentType === "partial" && amountCents > outstanding) {
+    redirect(
+      `/billing/statements/${statementId}?error=${encodeURIComponent(`Payment cannot exceed outstanding balance of ${formatMoney(outstanding)}`)}`
+    );
+  }
 
   const { recordStatementPayment } = await import("@/lib/record-payment");
   const result = await recordStatementPayment({
@@ -273,9 +420,11 @@ export async function recordStatementPaymentAction(statementId: string, formData
     referenceNumber,
   });
 
-  revalidatePath(`/statements/${statementId}`);
-  revalidatePath("/statements");
-  redirect(`/statements/${statementId}?paid=1&partial=${result.isFullyPaid ? "0" : "1"}`);
+  revalidatePath(`/billing/statements/${statementId}`);
+  revalidatePath("/billing/statements");
+  redirect(
+    `/billing/statements/${statementId}?paid=1&partial=${result.isFullyPaid ? "0" : "1"}`
+  );
 }
 
 /** @deprecated Use recordStatementPaymentAction */
@@ -293,7 +442,7 @@ export async function runAutoBillingAction() {
   const { runAutoBillingForUser } = await import("@/lib/auto-billing");
   const result = await runAutoBillingForUser(user.id, { force: true });
   revalidatePath("/dashboard");
-  revalidatePath("/statements");
+  revalidatePath("/billing/statements");
   revalidatePath("/settings");
   redirect(
     `/settings?autoBilling=1&generated=${result.generated}&sent=${result.sent}&skipped=${result.skipped}`
@@ -310,13 +459,13 @@ export async function refreshStatementAction(statementId: string) {
     const message = encodeURIComponent(
       error instanceof Error ? error.message : "Could not refresh statement"
     );
-    redirect(`/statements/${statementId}?error=${message}`);
+    redirect(`/billing/statements/${statementId}?error=${message}`);
   }
 
-  revalidatePath(`/statements/${statementId}`);
-  revalidatePath("/statements");
+  revalidatePath(`/billing/statements/${statementId}`);
+  revalidatePath("/billing/statements");
   revalidatePath("/dashboard");
-  redirect(`/statements/${statementId}?refreshed=1`);
+  redirect(`/billing/statements/${statementId}?refreshed=1`);
 }
 
 export async function deleteStatementAction(statementId: string, formData: FormData) {
@@ -325,14 +474,14 @@ export async function deleteStatementAction(statementId: string, formData: FormD
 
   const confirm = String(formData.get("confirm") || "").trim();
   if (confirm !== statement.statementNumber) {
-    redirect(`/statements/${statementId}?error=delete_confirm`);
+    redirect(`/billing/statements/${statementId}?error=delete_confirm`);
   }
 
   await prisma.statement.delete({ where: { id: statementId } });
 
-  revalidatePath("/statements");
+  revalidatePath("/billing/statements");
   revalidatePath("/dashboard");
-  redirect("/statements?deleted=1");
+  redirect("/billing/statements?deleted=1");
 }
 
 export async function sendReceiptEmailAction(receiptId: string) {
@@ -356,9 +505,9 @@ export async function sendReceiptEmailAction(receiptId: string) {
 
   const settings = user.settings;
   const landlordName = settings?.landlordName || user.name || user.email;
-  const { MONTH_NAMES } = await import("@/lib/statements");
+  const { MONTH_NAMES } = await import("@/lib/billing-constants");
   const { formatMoney } = await import("@/lib/money");
-  const { sendEmail } = await import("@/lib/email");
+  const { sendEmail } = await import("@/server/emails/send");
   const { buildReceiptEmailContent, buildPartialPaymentEmailContent } = await import(
     "@/lib/tenant-communications"
   );
@@ -401,5 +550,5 @@ export async function sendReceiptEmailAction(receiptId: string) {
     data: { emailSentAt: new Date() },
   });
 
-  revalidatePath(`/statements/${statement.id}`);
+  revalidatePath(`/billing/statements/${statement.id}`);
 }

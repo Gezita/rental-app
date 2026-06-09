@@ -149,7 +149,7 @@ export async function updatePropertyFinancesAction(propertyId: string, formData:
   });
 
   revalidatePath(`/properties/${propertyId}`);
-  revalidatePath("/reports/tax");
+  revalidatePath("/billing/tax-reports");
   redirect(`/properties/${propertyId}?saved=finances`);
 }
 
@@ -330,7 +330,7 @@ export async function createTenantAction(unitId: string, formData: FormData) {
       );
     }
 
-    const { sendEmail } = await import("@/lib/email");
+    const { sendEmail } = await import("@/server/emails/send");
     const { buildOnboardingEmailContent } = await import("@/lib/tenant-communications");
     const { formatMoney } = await import("@/lib/money");
     const emailContent = buildOnboardingEmailContent({
@@ -446,7 +446,7 @@ export async function saveUtilityRulesAction(unitId: string, formData: FormData)
 
   revalidatePath(`/properties/${unit.propertyId}/units/${unitId}/utilities`);
   revalidatePath(`/properties/${unit.propertyId}/utility-bills`);
-  revalidatePath("/statements");
+  revalidatePath("/billing/statements");
   redirect(`/properties/${unit.propertyId}/units/${unitId}/utilities?saved=1`);
 }
 
@@ -701,7 +701,7 @@ export async function importUtilityBillsXlsxAction(propertyId: string, formData:
 
   revalidatePath(`/properties/${propertyId}/utility-bills`);
   revalidatePath(`/properties/${propertyId}/utility-bills/import`);
-  revalidatePath("/statements");
+  revalidatePath("/billing/statements");
   redirect(`/properties/${propertyId}/utility-bills/import?imported=${billIds.length}`);
 }
 
@@ -720,6 +720,6 @@ export async function addUtilityBillDatabaseAction(propertyId: string, formData:
 
   revalidatePath(`/properties/${propertyId}/utility-bills`);
   revalidatePath(`/properties/${propertyId}/utility-bills/import`);
-  revalidatePath("/statements");
+  revalidatePath("/billing/statements");
   redirect(`/properties/${propertyId}/utility-bills/import?added=1`);
 }

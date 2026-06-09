@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { PageBackNav } from "@/components/layout/page-back-nav";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { PageTabs } from "@/components/layout/page-tabs";
+import { portfolioTabs } from "@/lib/section-tabs";
 import {
   Badge,
   Button,
@@ -44,7 +45,7 @@ export default async function TenantsHubPage() {
 
   return (
     <div className="space-y-6">
-      <PageBackNav />
+      <PageTabs tabs={portfolioTabs} />
       <PageHeader
         title="Tenants"
         description="Active tenants across your portfolio — open a unit to edit details, lease, or billing."

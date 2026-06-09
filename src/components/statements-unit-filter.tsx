@@ -19,7 +19,7 @@ function statementsHref(unitId?: string, payment?: string) {
   if (unitId) params.set("unitId", unitId);
   if (payment) params.set("payment", payment);
   const query = params.toString();
-  return query ? `/statements?${query}` : "/statements";
+  return query ? `/billing/statements?${query}` : "/billing/statements";
 }
 
 export function StatementsUnitFilter({

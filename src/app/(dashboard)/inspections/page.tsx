@@ -2,8 +2,9 @@ import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { PageBackNav } from "@/components/layout/page-back-nav";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { PageTabs } from "@/components/layout/page-tabs";
+import { portfolioTabs } from "@/lib/section-tabs";
 import { FlashAlert } from "@/components/flash-alert";
 import {
   Badge,
@@ -39,7 +40,7 @@ export default async function InspectionsPage({
 
   return (
     <div className="space-y-6">
-      <PageBackNav />
+      <PageTabs tabs={portfolioTabs} />
       <PageHeader
         title="Inspections"
         description="Move-in, move-out, and periodic unit inspections with photos and notes."

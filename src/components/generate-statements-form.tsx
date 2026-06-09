@@ -6,8 +6,11 @@ import { Plus, Trash2 } from "lucide-react";
 import {
   getMissingUtilityBillsWarningsAction,
   getUtilityBillsForMonthAction,
+  previewStatementsAction,
   type MissingUtilityBillsWarning,
 } from "@/app/actions/statements";
+import type { StatementPreviewRow } from "@/lib/statement-preview";
+import { StatementPreviewTable } from "@/components/statement-preview-table";
 import { MONTH_NAMES, UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -62,6 +65,9 @@ export function GenerateStatementsForm({
   const [extraCosts, setExtraCosts] = useState<ExtraCostRow[]>([]);
   const [nextExtraId, setNextExtraId] = useState(0);
   const [isLoadingBills, startBillTransition] = useTransition();
+  const [previewRows, setPreviewRows] = useState<StatementPreviewRow[]>([]);
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [isPreviewing, startPreview] = useTransition();
 
   const isAllProperties = propertyId === ALL_PROPERTIES_VALUE;
 
@@ -92,6 +98,8 @@ export function GenerateStatementsForm({
 
   useEffect(() => {
     if (!propertyId) return;
+    setPreviewLoaded(false);
+    setPreviewRows([]);
     startBillTransition(async () => {
       const [bills, warnings] = await Promise.all([
         isAllProperties
@@ -103,6 +111,16 @@ export function GenerateStatementsForm({
       setMissingBillWarnings(warnings);
     });
   }, [propertyId, month, year, isAllProperties]);
+
+  function handlePreview() {
+    const unitIds = [...selectedUnitIds];
+    if (unitIds.length === 0) return;
+    startPreview(async () => {
+      const rows = await previewStatementsAction(propertyId, month, year, unitIds);
+      setPreviewRows(rows);
+      setPreviewLoaded(true);
+    });
+  }
 
   function handlePropertyChange(nextPropertyId: string) {
     setPropertyId(nextPropertyId);
@@ -294,7 +312,7 @@ export function GenerateStatementsForm({
               </ul>
               <p className="text-xs text-muted">
                 Or open the{" "}
-                <Link href="/utility-bills" className="font-medium text-primary-hover underline">
+                <Link href="/billing/utility-bills" className="font-medium text-primary-hover underline">
                   utility bills hub
                 </Link>{" "}
                 to import or upload for any property.
@@ -429,9 +447,31 @@ export function GenerateStatementsForm({
         </div>
       )}
 
-      <SubmitButton disabled={selectedUnits.length === 0} pendingLabel="Generating…">
-        Generate draft statement{selectedUnits.length === 1 ? "" : "s"}
-      </SubmitButton>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={selectedUnits.length === 0 || isPreviewing}
+          onClick={handlePreview}
+        >
+          {isPreviewing ? "Previewing…" : "Preview statements"}
+        </Button>
+        <SubmitButton disabled={selectedUnits.length === 0} pendingLabel="Generating…">
+          Generate draft statement{selectedUnits.length === 1 ? "" : "s"}
+        </SubmitButton>
+      </div>
+
+      {previewLoaded && (
+        <div className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Statement preview</p>
+            <p className="text-sm text-muted">
+              Review totals before generating drafts for {MONTH_NAMES[month - 1]} {year}.
+            </p>
+          </div>
+          <StatementPreviewTable rows={previewRows} />
+        </div>
+      )}
     </form>
   );
 }

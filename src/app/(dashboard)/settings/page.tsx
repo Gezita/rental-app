@@ -1,8 +1,8 @@
-import { runAutoBillingAction, updateSettingsAction } from "@/app/actions/app";
+import { runAutoBillingAction, updateSettingsAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { isStripeConfigured } from "@/lib/stripe";
-import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { SubmitButton } from "@/components/submit-button";
 import {
   Alert,
@@ -35,11 +35,10 @@ export default async function SettingsPage({
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <PageBackNav />
-      <div>
-        <h1 className="text-2xl font-bold">Settings</h1>
-        <p className="text-muted">Billing automation, payments, and reminders</p>
-      </div>
+      <PageHeader
+        title="Account"
+        description="Billing automation, payments, and reminders"
+      />
 
       {params.saved && (
         <FlashAlert clearParams={["saved"]}>Saved settings.</FlashAlert>

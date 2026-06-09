@@ -6,52 +6,53 @@ export type NavItem = {
 };
 
 export const dashboardNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", exact: true },
+  { href: "/dashboard", label: "Home", exact: true },
   {
     href: "/properties",
     label: "Properties",
     children: [
       { href: "/properties", label: "All properties", exact: true },
       { href: "/tenants", label: "Tenants" },
-      { href: "/utility-bills", label: "Utility bills" },
       { href: "/inspections", label: "Inspections" },
     ],
   },
-  { href: "/statements", label: "Statements" },
-  { href: "/reports/tax", label: "Tax Reports" },
-  { href: "/notices", label: "LTB Notices" },
-  { href: "/documents", label: "Documents" },
+  {
+    href: "/billing",
+    label: "Billing",
+    children: [
+      { href: "/billing", label: "Monthly workflow", exact: true },
+      { href: "/billing/statements", label: "Statements" },
+      { href: "/billing/utility-bills", label: "Utility bills" },
+      { href: "/billing/payments", label: "Payments" },
+      { href: "/billing/tax-reports", label: "Tax reports" },
+    ],
+  },
+  {
+    href: "/documents",
+    label: "Documents",
+    children: [
+      { href: "/documents", label: "All files", exact: true },
+      { href: "/documents/notices", label: "Notices" },
+    ],
+  },
   { href: "/maintenance", label: "Maintenance" },
-  { href: "/profile", label: "Profile" },
-  { href: "/integrations", label: "Integrations" },
-  { href: "/settings", label: "Settings" },
+  {
+    href: "/settings",
+    label: "Settings",
+    children: [
+      { href: "/settings", label: "Account", exact: true },
+      { href: "/settings/profile", label: "Profile" },
+      { href: "/settings/integrations", label: "Integrations" },
+    ],
+  },
 ];
 
-/** Flat list for mobile menu and other consumers that need every route. */
+/** Flat list for consumers that need every route. */
 export function flattenNavItems(items: NavItem[] = dashboardNavItems): NavItem[] {
   return items.flatMap((item) =>
     item.children ? [item, ...item.children] : [item]
   );
 }
-
-export const mobileNavSections: { label: string; items: NavItem[] }[] = [
-  {
-    label: "Navigate",
-    items: dashboardNavItems
-      .filter(
-        (item) =>
-          item.href !== "/profile" && item.href !== "/integrations" && item.href !== "/settings"
-      )
-      .flatMap((item) => item.children ?? [item]),
-  },
-  {
-    label: "Account",
-    items: dashboardNavItems.filter(
-      (item) =>
-        item.href === "/profile" || item.href === "/integrations" || item.href === "/settings"
-    ),
-  },
-];
 
 export function isNavItemActive(pathname: string, href: string, exact?: boolean) {
   return exact

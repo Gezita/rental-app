@@ -8,17 +8,12 @@ const SESSION_COOKIE = "landlord_session";
 const protectedPrefixes = [
   "/dashboard",
   "/properties",
-  "/utility-bills",
+  "/billing",
   "/tenants",
   "/inspections",
-  "/statements",
-  "/notices",
   "/documents",
   "/maintenance",
-  "/integrations",
-  "/profile",
   "/settings",
-  "/reports",
   "/pay",
 ];
 

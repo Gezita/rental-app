@@ -96,7 +96,7 @@ export default async function LeaseCompletePage({
       {query.error === "docusign_disabled" && (
         <FlashAlert variant="warning" clearParams={["error"]}>
           Enable DocuSign under{" "}
-          <Link href="/integrations" className="font-medium underline">
+          <Link href="/settings/integrations" className="font-medium underline">
             Integrations
           </Link>{" "}
           first.
@@ -105,7 +105,7 @@ export default async function LeaseCompletePage({
       {query.error === "docusign_not_configured" && (
         <FlashAlert variant="warning" clearParams={["error"]}>
           DocuSign API credentials are missing from your environment. See{" "}
-          <Link href="/integrations" className="font-medium underline">
+          <Link href="/settings/integrations" className="font-medium underline">
             Integrations
           </Link>
           .
@@ -185,7 +185,7 @@ export default async function LeaseCompletePage({
               {!docusignReady && (
                 <p className="text-sm text-warning">
                   Connect DocuSign under{" "}
-                  <Link href="/integrations" className="font-medium underline">
+                  <Link href="/settings/integrations" className="font-medium underline">
                     Integrations
                   </Link>{" "}
                   to send envelopes automatically.

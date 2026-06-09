@@ -253,7 +253,7 @@ scripts/                     switch-db-mode.sh, migrate-sqlite-to-postgres.ts, i
 ## Architecture Patterns
 
 - **Server Components by default** — pages fetch data on the server; client components only where needed (forms, flash dismiss, submit pending state).
-- **Server actions** — all mutations go through `src/app/actions/`; re-exported from `actions/index.ts` and `actions/app.ts`.
+- **Server actions** — all mutations go through `src/app/actions/`; re-exported from `actions/index.ts`.
 - **Authorization** — `requireUser()` + `requireProperty/Unit/Tenant/Statement()` scope every query by `userId`.
 - **Money** — always stored as integer cents; use `formatMoney()` for display.
 - **Heavy libraries** — `xlsx` is dynamically imported on the server only (never bundled to the client).
@@ -370,4 +370,6 @@ Check that amounts are in dollars (e.g. `125.50`, not cents). Excel numbers are 
 
 - [`zigglo_ui_style_guide.md`](./zigglo_ui_style_guide.md) — Zigglo design language (tokens, components, layout)
 - [`STYLE_GUIDE.md`](./STYLE_GUIDE.md) — Rentals UI conventions and component map
+- [`PRODUCT_ROADMAP.md`](./PRODUCT_ROADMAP.md) — roadmap index and phase checklist
+- [`docs/roadmap/`](./docs/roadmap/README.md) — detailed strategy, phases, mobile, monetization, notifications, UX
 - [`LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md`](./LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md) — product spec, data model, business rules, and implementation status

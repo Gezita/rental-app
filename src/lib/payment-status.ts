@@ -87,3 +87,13 @@ export function getOutstandingCents(statement: {
 }): number {
   return Math.max(0, statement.totalDueCents - statement.paidAmountCents);
 }
+
+/** Balance still owed; zero for paid or cancelled statements. */
+export function getStatementOutstandingCents(statement: {
+  totalDueCents: number;
+  paidAmountCents: number;
+  status: string;
+}): number {
+  if (statement.status === "paid" || statement.status === "cancelled") return 0;
+  return getOutstandingCents(statement);
+}

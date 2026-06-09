@@ -11,11 +11,11 @@ export async function exportT776ReportAction(formData: FormData) {
 
   try {
     const { documentId } = await exportT776ForUser(user.id, year);
-    redirect(`/reports/tax?exported=1&year=${year}&documentId=${documentId}`);
+    redirect(`/billing/tax-reports?exported=1&year=${year}&documentId=${documentId}`);
   } catch (error) {
     const message = encodeURIComponent(
       error instanceof Error ? error.message : "Could not export PDF"
     );
-    redirect(`/reports/tax?error=${message}`);
+    redirect(`/billing/tax-reports?error=${message}`);
   }
 }

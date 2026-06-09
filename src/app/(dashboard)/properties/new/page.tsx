@@ -1,4 +1,4 @@
-import { createPropertyAction } from "@/app/actions/app";
+import { createPropertyAction } from "@/app/actions";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label } from "@/components/ui";
 
@@ -7,7 +7,7 @@ export default function NewPropertyPage() {
     <div className="mx-auto max-w-xl space-y-6">
       <PageBackNav parent={{ href: "/properties", label: "Properties" }} />
       <div>
-        <h1 className="text-2xl font-bold">Add Property</h1>
+        <h1 className="text-2xl font-bold">Add property</h1>
         <p className="text-muted">Create a new rental property</p>
       </div>
 

@@ -82,7 +82,7 @@ export async function sendLeaseForSignatureAction(documentId: string) {
   });
 
   if (!document || !document.tenant || !document.unit) {
-    redirect("/integrations?error=lease_not_found");
+    redirect("/settings/integrations?error=lease_not_found");
   }
 
   const settings = user.settings;

@@ -86,7 +86,7 @@ export async function updateProfileAction(formData: FormData) {
     data: { name: name ?? null },
   });
 
-  revalidatePath("/profile");
+  revalidatePath("/settings/profile");
   revalidatePath("/dashboard");
-  redirect("/profile?saved=1");
+  redirect("/settings/profile?saved=1");
 }
