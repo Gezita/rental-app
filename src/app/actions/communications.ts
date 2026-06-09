@@ -1,12 +1,13 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendEmail } from "@/lib/email";
 import { getLtbForm } from "@/lib/ltb-forms";
-import { parseMoneyToCents, formatMoney } from "@/lib/money";
+import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { requireProperty } from "@/lib/ownership";
 import {
   buildAnnouncementEmailContent,
@@ -15,18 +16,33 @@ import {
 import { getLtbNoticeWizardFields, resolveLtbNoticeForm } from "@/lib/ltb-notice-wizard";
 import { parseValidDate } from "@/lib/validation";
 import { requireUnit } from "@/lib/ownership";
+import { zOptionalString, zRequiredString } from "@/lib/validation";
+
+// ── Schemas ──────────────────────────────────────────────────────────────────
+
+const generateLtbNoticeSchema = z.object({
+  propertyId: zRequiredString,
+  unitId: zRequiredString,
+  tenantId: zRequiredString,
+  formCode: z.string().trim().min(1, "Form code is required").transform((v) => v.toUpperCase()),
+  notes: zOptionalString,
+});
+
+const sendAnnouncementSchema = z.object({
+  subject: zRequiredString,
+  message: zRequiredString,
+  propertyId: zOptionalString,
+});
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function generateLtbNoticeAction(formData: FormData) {
   const user = await requireUser();
-  const propertyId = String(formData.get("propertyId") || "");
-  const unitId = String(formData.get("unitId") || "");
-  const tenantId = String(formData.get("tenantId") || "");
-  const formCode = String(formData.get("formCode") || "").trim().toUpperCase();
-  const notes = String(formData.get("notes") || "").trim() || undefined;
 
-  if (!propertyId || !unitId || !tenantId || !formCode) {
-    redirect("/notices/wizard?error=required");
-  }
+  const parsed = generateLtbNoticeSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/notices/wizard?error=required");
+
+  const { propertyId, unitId, tenantId, formCode, notes } = parsed.data;
 
   const form = resolveLtbNoticeForm(formCode);
   if (!form) {
@@ -50,13 +66,14 @@ export async function generateLtbNoticeAction(formData: FormData) {
   for (const field of getLtbNoticeWizardFields(formCode)) {
     const value = String(formData.get(field.name) || "").trim();
     if (field.required && !value) {
-      redirect(`/notices/wizard?error=required&formCode=${formCode}&tenantId=${tenantId}&propertyId=${propertyId}&unitId=${unitId}`);
+      redirect(
+        `/notices/wizard?error=required&formCode=${formCode}&tenantId=${tenantId}&propertyId=${propertyId}&unitId=${unitId}`
+      );
     }
     if (value) fieldValues[field.name] = value;
   }
 
-  const serviceDate =
-    parseValidDate(fieldValues.serviceDate) ?? new Date();
+  const serviceDate = parseValidDate(fieldValues.serviceDate) ?? new Date();
   const terminationDate = fieldValues.terminationDate
     ? parseValidDate(fieldValues.terminationDate) ?? undefined
     : undefined;
@@ -112,9 +129,9 @@ export async function generateLtbNoticeAction(formData: FormData) {
 
 export async function uploadLtbNoticeAction(formData: FormData) {
   const user = await requireUser();
-  const propertyId = String(formData.get("propertyId") || "");
-  const unitId = String(formData.get("unitId") || "") || undefined;
-  const tenantId = String(formData.get("tenantId") || "") || undefined;
+  const propertyId = String(formData.get("propertyId") || "").trim();
+  const unitId = String(formData.get("unitId") || "").trim() || undefined;
+  const tenantId = String(formData.get("tenantId") || "").trim() || undefined;
   const formCode = String(formData.get("formCode") || "").trim().toUpperCase();
   const effectiveDate = String(formData.get("effectiveDate") || "").trim() || undefined;
   const notes = String(formData.get("notes") || "").trim() || undefined;
@@ -137,7 +154,9 @@ export async function uploadLtbNoticeAction(formData: FormData) {
     propertyId,
     unitId,
     tenantId,
-    notes: effectiveDate ? `Effective date: ${effectiveDate}${notes ? ` — ${notes}` : ""}` : notes,
+    notes: effectiveDate
+      ? `Effective date: ${effectiveDate}${notes ? ` — ${notes}` : ""}`
+      : notes,
   });
 
   await prisma.document.update({
@@ -157,11 +176,7 @@ export async function sendLtbNoticeEmailAction(formData: FormData) {
 
   const document = await prisma.document.findFirst({
     where: { id: documentId, userId: user.id, category: "ltb_notice" },
-    include: {
-      property: true,
-      unit: true,
-      tenant: true,
-    },
+    include: { property: true, unit: true, tenant: true },
   });
 
   if (!document) throw new Error("Notice document not found");
@@ -211,14 +226,12 @@ export async function sendLtbNoticeEmailAction(formData: FormData) {
 
 export async function sendAnnouncementEmailAction(formData: FormData) {
   const user = await requireUser();
-  const subjectLine = String(formData.get("subject") || "").trim();
-  const message = String(formData.get("message") || "").trim();
-  const propertyId = String(formData.get("propertyId") || "") || undefined;
-  const tenantIds = formData.getAll("tenantIds").map(String).filter(Boolean);
 
-  if (!subjectLine || !message) {
-    redirect("/notices?error=announcement_required");
-  }
+  const parsed = sendAnnouncementSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/notices?error=announcement_required");
+
+  const { subject: subjectLine, message, propertyId } = parsed.data;
+  const tenantIds = formData.getAll("tenantIds").map(String).filter(Boolean);
 
   let tenants;
   if (tenantIds.length > 0) {
@@ -233,23 +246,17 @@ export async function sendAnnouncementEmailAction(formData: FormData) {
   } else if (propertyId) {
     await requireProperty(user.id, propertyId);
     tenants = await prisma.tenant.findMany({
-      where: {
-        isActive: true,
-        unit: { propertyId, property: { userId: user.id } },
-      },
+      where: { isActive: true, unit: { propertyId, property: { userId: user.id } } },
       include: { unit: { include: { property: true } } },
     });
   } else {
     tenants = await prisma.tenant.findMany({
-      where: {
-        isActive: true,
-        unit: { property: { userId: user.id } },
-      },
+      where: { isActive: true, unit: { property: { userId: user.id } } },
       include: { unit: { include: { property: true } } },
     });
   }
 
-  const recipients = tenants.filter((tenant) => tenant.email);
+  const recipients = tenants.filter((t) => t.email);
   if (recipients.length === 0) {
     redirect("/notices?error=no_email");
   }

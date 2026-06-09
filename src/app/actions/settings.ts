@@ -1,33 +1,59 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { zCheckbox, zOptionalString } from "@/lib/validation";
+
+// ── Schemas ──────────────────────────────────────────────────────────────────
+
+const updateSettingsSchema = z.object({
+  landlordName: z.string().trim().min(1, "Landlord name is required"),
+  paymentInstructions: zOptionalString,
+  statementNotes: zOptionalString,
+  autoSendStatements: zCheckbox,
+  autoSendDayOfMonth: z.preprocess(
+    (v) => parseInt(String(v ?? 1), 10),
+    z.number().int().transform((n) => Math.min(28, Math.max(1, n)))
+  ),
+  leaseReminderDays: z.preprocess(
+    (v) => parseInt(String(v ?? 30), 10),
+    z.number().int().transform((n) => Math.min(365, Math.max(7, n)))
+  ),
+  stripePaymentsEnabled: zCheckbox,
+});
+
+const updateProfileSchema = z.object({
+  name: zOptionalString,
+});
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function updateSettingsAction(formData: FormData) {
   const user = await requireUser();
-  const landlordName = String(formData.get("landlordName") || "").trim();
-  const paymentInstructions = String(formData.get("paymentInstructions") || "").trim();
-  const statementNotes = String(formData.get("statementNotes") || "").trim();
-  const autoSendStatements = formData.get("autoSendStatements") === "on";
-  const autoSendDayOfMonth = Math.min(
-    28,
-    Math.max(1, parseInt(String(formData.get("autoSendDayOfMonth") || "1"), 10))
-  );
-  const leaseReminderDays = Math.min(
-    365,
-    Math.max(7, parseInt(String(formData.get("leaseReminderDays") || "30"), 10))
-  );
-  const stripePaymentsEnabled = formData.get("stripePaymentsEnabled") === "on";
+
+  const parsed = updateSettingsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/settings?error=invalid");
+
+  const {
+    landlordName,
+    paymentInstructions,
+    statementNotes,
+    autoSendStatements,
+    autoSendDayOfMonth,
+    leaseReminderDays,
+    stripePaymentsEnabled,
+  } = parsed.data;
 
   await prisma.userSettings.upsert({
     where: { userId: user.id },
     create: {
       userId: user.id,
       landlordName,
-      paymentInstructions,
-      statementNotes,
+      paymentInstructions: paymentInstructions ?? "",
+      statementNotes: statementNotes ?? "",
       autoSendStatements,
       autoSendDayOfMonth,
       leaseReminderDays,
@@ -35,8 +61,8 @@ export async function updateSettingsAction(formData: FormData) {
     },
     update: {
       landlordName,
-      paymentInstructions,
-      statementNotes,
+      paymentInstructions: paymentInstructions ?? "",
+      statementNotes: statementNotes ?? "",
       autoSendStatements,
       autoSendDayOfMonth,
       leaseReminderDays,
@@ -51,11 +77,13 @@ export async function updateSettingsAction(formData: FormData) {
 
 export async function updateProfileAction(formData: FormData) {
   const user = await requireUser();
-  const name = String(formData.get("name") || "").trim();
+
+  const parsed = updateProfileSchema.safeParse(Object.fromEntries(formData));
+  const name = parsed.success ? parsed.data.name : undefined;
 
   await prisma.user.update({
     where: { id: user.id },
-    data: { name: name || null },
+    data: { name: name ?? null },
   });
 
   revalidatePath("/profile");

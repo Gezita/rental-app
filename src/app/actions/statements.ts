@@ -1,11 +1,56 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { parseMoneyToCents } from "@/lib/money";
 import { requireStatement } from "@/lib/ownership";
+import {
+  zMonth,
+  zOptionalCents,
+  zOptionalDate,
+  zOptionalString,
+  zPaymentMethod,
+  zRequiredString,
+  zYear,
+} from "@/lib/validation";
+
+// ── Schemas ──────────────────────────────────────────────────────────────────
+
+const generateStatementsSchema = z.object({
+  propertyId: zRequiredString,
+  month: zMonth,
+  year: zYear,
+});
+
+const createPastStatementSchema = z
+  .object({
+    unitId: zRequiredString,
+    month: zMonth,
+    year: zYear,
+    paymentStatus: z.enum(["unpaid", "paid", "partial"]).default("unpaid"),
+    paymentMethod: zPaymentMethod,
+    paymentDate: zOptionalDate,
+    partialAmount: zOptionalCents,
+  })
+  .refine(
+    (d) => d.paymentStatus !== "partial" || (d.partialAmount !== undefined && d.partialAmount > 0),
+    { message: "Partial payment requires an amount", path: ["partialAmount"] }
+  );
+
+const recordPaymentSchema = z.object({
+  paymentType: z.enum(["full", "partial"]).default("full"),
+  amount: zOptionalCents,
+  paymentDate: z.preprocess(
+    (v) => (typeof v === "string" ? v.trim() || undefined : undefined),
+    z.string().transform((v) => new Date(v)).optional()
+  ),
+  paymentMethod: zPaymentMethod,
+  referenceNumber: zOptionalString,
+});
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function getUtilityBillsForMonthAction(
   propertyId: string,
@@ -19,9 +64,13 @@ export async function getUtilityBillsForMonthAction(
 
 export async function generateStatementsAction(formData: FormData) {
   const user = await requireUser();
-  const propertyId = String(formData.get("propertyId") || "");
-  const month = parseInt(String(formData.get("month") || "1"), 10);
-  const year = parseInt(String(formData.get("year") || new Date().getFullYear()), 10);
+
+  const parsed = generateStatementsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    redirect("/statements/generate?error=Invalid%20form%20data");
+  }
+
+  const { propertyId, month, year } = parsed.data;
   const unitIds = formData.getAll("unitIds").map(String).filter(Boolean);
 
   try {
@@ -34,15 +83,9 @@ export async function generateStatementsAction(formData: FormData) {
     await prepareUtilityBillsFromForm(user.id, propertyId, month, year, formData);
 
     const primaryUnitId = unitIds.length === 1 ? unitIds[0] : undefined;
-    const extraCosts = await parseExtraCostsFromForm(
-      user.id,
-      propertyId,
-      primaryUnitId,
-      formData
-    );
+    const extraCosts = await parseExtraCostsFromForm(user.id, propertyId, primaryUnitId, formData);
     const extraLineItems = extraCostsToLineItems(extraCosts);
-    const defaultExtras =
-      extraLineItems.length > 0 ? { extraLineItems } : undefined;
+    const defaultExtras = extraLineItems.length > 0 ? { extraLineItems } : undefined;
 
     const { generateStatementsForProperty } = await import("@/lib/statements");
     const statements = await generateStatementsForProperty(
@@ -60,8 +103,7 @@ export async function generateStatementsAction(formData: FormData) {
       );
     }
 
-    const unitNames = statements.map((statement) => statement.unit.name).join(", ");
-
+    const unitNames = statements.map((s) => s.unit.name).join(", ");
     revalidatePath("/statements");
     revalidatePath("/statements/generate");
     redirect(`/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
@@ -75,62 +117,34 @@ export async function generateStatementsAction(formData: FormData) {
 
 export async function createPastStatementAction(formData: FormData) {
   const user = await requireUser();
-  const unitId = String(formData.get("unitId") || "");
-  const month = parseInt(String(formData.get("month") || "1"), 10);
-  const year = parseInt(String(formData.get("year") || "2000"), 10);
-  const paymentStatus = String(formData.get("paymentStatus") || "unpaid");
+
+  const parsed = createPastStatementSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    const firstError = parsed.error.issues[0]?.message ?? "Invalid form data";
+    redirect(`/statements/generate?error=${encodeURIComponent(firstError)}`);
+  }
+
+  const { unitId, month, year, paymentStatus, paymentMethod, paymentDate, partialAmount } =
+    parsed.data;
 
   let initialPayment:
     | { status: "unpaid" }
-    | {
-        status: "paid";
-        paymentDate: Date;
-        paymentMethod:
-          | "e_transfer"
-          | "cash"
-          | "cheque"
-          | "bank_deposit"
-          | "stripe"
-          | "other";
-      }
-    | {
-        status: "partial";
-        amountCents: number;
-        paymentDate: Date;
-        paymentMethod:
-          | "e_transfer"
-          | "cash"
-          | "cheque"
-          | "bank_deposit"
-          | "stripe"
-          | "other";
-      };
-
-  const paymentMethod = String(formData.get("paymentMethod") || "e_transfer") as
-    | "e_transfer"
-    | "cash"
-    | "cheque"
-    | "bank_deposit"
-    | "stripe"
-    | "other";
+    | { status: "paid"; paymentDate: Date; paymentMethod: typeof paymentMethod }
+    | { status: "partial"; amountCents: number; paymentDate: Date; paymentMethod: typeof paymentMethod };
 
   if (paymentStatus === "unpaid") {
     initialPayment = { status: "unpaid" };
   } else if (paymentStatus === "paid") {
     initialPayment = {
       status: "paid",
-      paymentDate: new Date(String(formData.get("paymentDate") || new Date())),
+      paymentDate: paymentDate ?? new Date(),
       paymentMethod,
     };
   } else {
-    const partialRaw = String(formData.get("partialAmount") || "").trim();
-    if (!partialRaw) {
-      redirect("/statements/generate?error=Partial%20payment%20requires%20an%20amount");
-    }
     initialPayment = {
       status: "partial",
-      amountCents: parseMoneyToCents(partialRaw),
-      paymentDate: new Date(String(formData.get("paymentDate") || new Date())),
+      amountCents: partialAmount!,
+      paymentDate: paymentDate ?? new Date(),
       paymentMethod,
     };
   }
@@ -161,47 +175,37 @@ export async function recordStatementPaymentAction(statementId: string, formData
   const user = await requireUser();
   const statement = await requireStatement(user.id, statementId);
 
-  const paymentDate = new Date(String(formData.get("paymentDate") || new Date()));
-  const paymentMethod = String(formData.get("paymentMethod") || "e_transfer");
-  const referenceNumber = String(formData.get("referenceNumber") || "").trim() || undefined;
-  const amountInput = String(formData.get("amount") || "").trim();
-  const paymentType = String(formData.get("paymentType") || "full");
+  const parsed = recordPaymentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    redirect(`/statements/${statementId}?error=invalid`);
+  }
+
+  const { paymentType, amount, paymentDate, paymentMethod, referenceNumber } = parsed.data;
 
   const outstanding = statement.totalDueCents - statement.paidAmountCents;
   if (outstanding <= 0) {
     redirect(`/statements/${statementId}?error=already_paid`);
   }
 
-  let amountCents = outstanding;
-
-  if (paymentType === "partial") {
-    if (!amountInput) {
-      redirect(`/statements/${statementId}?error=amount_required`);
-    }
-    amountCents = parseMoneyToCents(amountInput);
+  if (paymentType === "partial" && !amount) {
+    redirect(`/statements/${statementId}?error=amount_required`);
   }
+
+  const amountCents = paymentType === "partial" ? amount! : outstanding;
 
   const { recordStatementPayment } = await import("@/lib/record-payment");
   const result = await recordStatementPayment({
     statementId,
     userId: user.id,
     amountCents,
-    paymentDate,
-    paymentMethod: paymentMethod as
-      | "e_transfer"
-      | "cash"
-      | "cheque"
-      | "bank_deposit"
-      | "stripe"
-      | "other",
+    paymentDate: paymentDate ?? new Date(),
+    paymentMethod,
     referenceNumber,
   });
 
   revalidatePath(`/statements/${statementId}`);
   revalidatePath("/statements");
-  redirect(
-    `/statements/${statementId}?paid=1&partial=${result.isFullyPaid ? "0" : "1"}`
-  );
+  redirect(`/statements/${statementId}?paid=1&partial=${result.isFullyPaid ? "0" : "1"}`);
 }
 
 /** @deprecated Use recordStatementPaymentAction */
@@ -266,22 +270,11 @@ export async function sendReceiptEmailAction(receiptId: string) {
   const receipt = await prisma.receipt.findFirst({
     where: {
       id: receiptId,
-      payment: {
-        statement: {
-          unit: { property: { userId: user.id } },
-        },
-      },
+      payment: { statement: { unit: { property: { userId: user.id } } } },
     },
     include: {
       payment: {
-        include: {
-          statement: {
-            include: {
-              tenant: true,
-              unit: true,
-            },
-          },
-        },
+        include: { statement: { include: { tenant: true, unit: true } } },
       },
       pdfDocument: true,
     },

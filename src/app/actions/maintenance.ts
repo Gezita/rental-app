@@ -1,28 +1,49 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { parseMoneyToCents } from "@/lib/money";
 import { requireProperty } from "@/lib/ownership";
+import { zOptionalCents, zOptionalString, zRequiredString } from "@/lib/validation";
+
+// ── Schemas ──────────────────────────────────────────────────────────────────
+
+const createMaintenanceSchema = z.object({
+  propertyId: zRequiredString,
+  unitId: zOptionalString,
+  title: zRequiredString,
+  category: z.preprocess(
+    (v) => (typeof v === "string" && v ? v : "general_repair"),
+    z.enum(["plumbing", "electrical", "hvac", "appliance", "roof", "pest_control", "cleaning", "general_repair", "other"])
+  ),
+  status: z.preprocess(
+    (v) => (typeof v === "string" && v ? v : "planned"),
+    z.enum(["planned", "in_progress", "completed", "cancelled"])
+  ),
+  vendorName: zOptionalString,
+  cost: zOptionalCents,
+  description: zOptionalString,
+});
+
+// ── Actions ───────────────────────────────────────────────────────────────────
 
 export async function createMaintenanceAction(formData: FormData) {
   const user = await requireUser();
-  const propertyId = String(formData.get("propertyId") || "");
-  const unitId = String(formData.get("unitId") || "") || undefined;
-  const title = String(formData.get("title") || "").trim();
-  const category = String(formData.get("category") || "general_repair");
-  const vendorName = String(formData.get("vendorName") || "").trim() || undefined;
-  const costCents = parseMoneyToCents(String(formData.get("cost") || "0"));
-  const status = String(formData.get("status") || "planned");
-  const description = String(formData.get("description") || "").trim() || undefined;
-  const file = formData.get("file") as File | null;
+
+  const parsed = createMaintenanceSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/maintenance/new?error=required");
+
+  const { propertyId, unitId, title, category, status, vendorName, cost: costCents, description } =
+    parsed.data;
 
   const property = await requireProperty(user.id, propertyId).catch(() => null);
-  if (!property || !title) redirect("/maintenance/new?error=required");
+  if (!property) redirect("/maintenance/new?error=required");
 
+  const file = formData.get("file") as File | null;
   let invoiceDocumentId: string | undefined;
+
   if (file && file.size > 0) {
     const { saveUploadedFile } = await import("@/lib/files");
     const doc = await saveUploadedFile(file, {
@@ -39,19 +60,10 @@ export async function createMaintenanceAction(formData: FormData) {
       propertyId,
       unitId,
       title,
-      category: category as
-        | "plumbing"
-        | "electrical"
-        | "hvac"
-        | "appliance"
-        | "roof"
-        | "pest_control"
-        | "cleaning"
-        | "general_repair"
-        | "other",
+      category,
       vendorName,
       costCents: costCents || undefined,
-      status: status as "planned" | "in_progress" | "completed" | "cancelled",
+      status,
       description,
       maintenanceDate: new Date(),
       invoiceDocumentId,
