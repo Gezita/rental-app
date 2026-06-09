@@ -41,7 +41,7 @@ There are no automated tests beyond ESLint and the build type-check. The spreads
 
 ### Request flow
 
-All mutations use **Server Actions** in `src/app/actions/`; there are no REST endpoints except for Stripe webhooks, the cron trigger, and document downloads (`src/app/api/`). Pages are Server Components by default — add `"use client"` only for forms, flash-alert dismiss, or submit pending state.
+All mutations use **Server Actions** in `src/app/actions/`; there are no REST endpoints except for Stripe webhooks, the cron trigger, document downloads, and session management (`src/app/api/`). Pages are Server Components by default — add `"use client"` only for forms, flash-alert dismiss, or submit pending state.
 
 ### Authorization pattern
 
@@ -72,6 +72,10 @@ All monetary values are stored as **integer cents** in the database. Use `format
 | `src/lib/validation.ts` | All shared input validation |
 | `src/lib/ownership.ts` | Authorization guards (`requireProperty`, `requireUnit`, etc.) |
 | `src/lib/session-token.ts` | HMAC session signing (requires `SESSION_SECRET` in production) |
+| `src/lib/pdf.ts` | PDF generation for statements, leases, and receipts (server-only) |
+| `src/lib/ltb-forms.ts` | LTB form catalogue (codes, names, download URLs) |
+| `src/lib/ltb-notice-wizard.ts` | Multi-step LTB notice wizard — field definitions and form-filling logic |
+| `src/lib/standard-lease-2229e.ts` | Fills Ontario Form 2229e standard lease PDF from unit/lease data |
 
 ### Heavy dependencies
 
