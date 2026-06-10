@@ -25,7 +25,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ received: true });
-  } catch {
+  } catch (e) {
+    console.error("[docusign webhook] processing error:", e);
     return NextResponse.json({ received: true });
   }
 }

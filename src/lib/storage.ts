@@ -2,6 +2,7 @@ import { mkdir, readFile, unlink, writeFile } from "fs/promises";
 import path from "path";
 import type { DocumentCategory } from "@prisma/client";
 import { prisma } from "./db";
+import { deleteFromR2, downloadFromR2, getR2PresignedUrl, isR2Configured, uploadToR2 } from "./r2";
 
 export const UPLOAD_DIR = process.env.UPLOAD_DIR || "./uploads";
 
@@ -45,11 +46,17 @@ export async function saveDocumentBuffer(
   buffer: Buffer | Uint8Array,
   options: SaveDocumentOptions
 ) {
-  const userDir = await ensureUserUploadDir(options.userId);
   const safeName = options.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
   const uniqueName = `${Date.now()}-${safeName}`;
-  const absolutePath = path.join(userDir, uniqueName);
-  await writeFile(absolutePath, buffer);
+  const relPath = getRelativeFilePath(options.userId, uniqueName);
+
+  if (isR2Configured()) {
+    await uploadToR2(relPath, buffer, options.mimeType);
+  } else {
+    const userDir = await ensureUserUploadDir(options.userId);
+    const absolutePath = path.join(userDir, uniqueName);
+    await writeFile(absolutePath, buffer);
+  }
 
   return prisma.document.create({
     data: {
@@ -59,7 +66,7 @@ export async function saveDocumentBuffer(
       tenantId: options.tenantId,
       category: options.category,
       fileName: options.fileName,
-      filePath: getRelativeFilePath(options.userId, uniqueName),
+      filePath: relPath,
       fileMimeType: options.mimeType,
       fileSizeBytes: buffer.length,
       notes: options.notes,
@@ -108,9 +115,21 @@ function resolveUploadPath(filePath: string): string {
 }
 
 export async function readDocumentFile(filePath: string) {
+  if (isR2Configured()) {
+    return downloadFromR2(filePath);
+  }
   return readFile(resolveUploadPath(filePath));
 }
 
+export async function getDocumentPresignedUrl(filePath: string): Promise<string | null> {
+  if (!isR2Configured()) return null;
+  return getR2PresignedUrl(filePath);
+}
+
 export async function deleteDocumentFile(filePath: string) {
-  await unlink(resolveUploadPath(filePath)).catch(() => undefined);
+  if (isR2Configured()) {
+    await deleteFromR2(filePath).catch(() => undefined);
+  } else {
+    await unlink(resolveUploadPath(filePath)).catch(() => undefined);
+  }
 }

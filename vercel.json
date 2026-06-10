@@ -1,5 +1,11 @@
 {
   "buildCommand": "prisma db push --skip-generate && tsx prisma/seed.ts && next build",
   "framework": "nextjs",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "crons": [
+    {
+      "path": "/api/cron/auto-billing",
+      "schedule": "0 9 1 * *"
+    }
+  ]
 }
