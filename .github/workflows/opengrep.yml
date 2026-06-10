@@ -1,6 +1,8 @@
 name: Opengrep SAST
 
 on:
+  push:
+    branches: [main]
   pull_request:
     types: [opened]
 
