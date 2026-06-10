@@ -2,6 +2,7 @@ import {
   deleteDocumentFile,
   readDocumentFile,
   saveDocumentBuffer,
+  validateMagicBytes,
   validateUploadedFile,
 } from "./storage";
 import type { DocumentCategory } from "@prisma/client";
@@ -21,6 +22,7 @@ export async function saveUploadedFile(
 ) {
   validateUploadedFile(file);
   const buffer = Buffer.from(await file.arrayBuffer());
+  await validateMagicBytes(buffer, file.type);
 
   return saveDocumentBuffer(buffer, {
     userId: options.userId,

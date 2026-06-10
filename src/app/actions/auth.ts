@@ -74,17 +74,17 @@ export async function signInAction(formData: FormData) {
     redirect(`${errorUrl.pathname}${errorUrl.search}`);
   }
 
-  if (isLocked(email)) {
+  if (await isLocked(email)) {
     failRedirect();
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !(await bcrypt.compare(password, user.password))) {
-    recordFailure(email);
+    await recordFailure(email);
     failRedirect();
   }
 
-  clearAttempts(email);
+  await clearAttempts(email);
   await setSession(user.id);
   redirect(safeRedirectPath(next));
 }

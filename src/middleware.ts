@@ -68,8 +68,8 @@ export async function middleware(request: NextRequest) {
   }
 
   const sessionCookie = request.cookies.get(SESSION_COOKIE)?.value;
-  const userId = await parseSessionToken(sessionCookie);
-  const isAuthenticated = Boolean(userId);
+  const parsed = await parseSessionToken(sessionCookie);
+  const isAuthenticated = Boolean(parsed);
 
   if (isProtectedPath(pathname) && !isAuthenticated) {
     const signInUrl = new URL("/sign-in", request.url);
