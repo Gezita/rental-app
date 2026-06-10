@@ -2,8 +2,13 @@ const DEFAULT_SECRET = "dev-secret-change-in-production";
 
 function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET ?? DEFAULT_SECRET;
-  if (process.env.NODE_ENV === "production" && secret === DEFAULT_SECRET) {
-    throw new Error("SESSION_SECRET must be set in production");
+  if (process.env.NODE_ENV === "production") {
+    if (secret === DEFAULT_SECRET) {
+      throw new Error("SESSION_SECRET must be set in production");
+    }
+    if (secret.length < 32) {
+      throw new Error("SESSION_SECRET must be at least 32 characters");
+    }
   }
   return secret;
 }
@@ -14,7 +19,7 @@ function toHex(buffer: ArrayBuffer) {
     .join("");
 }
 
-async function signUserId(userId: string) {
+async function sign(payload: string): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(getSessionSecret()),
@@ -22,32 +27,30 @@ async function signUserId(userId: string) {
     false,
     ["sign"]
   );
-
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(userId)
-  );
-
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
   return toHex(signature);
 }
 
-export async function createSessionToken(userId: string): Promise<string> {
-  const signature = await signUserId(userId);
-  return `${userId}.${signature}`;
+// Token format: {userId}.{nonce}.{hmac(userId:nonce)}
+// cuid IDs and hex strings contain no dots, so splitting on "." gives exactly 3 parts.
+
+export async function createSessionToken(userId: string, nonce: string): Promise<string> {
+  const signature = await sign(`${userId}:${nonce}`);
+  return `${userId}.${nonce}.${signature}`;
 }
 
-export async function parseSessionToken(token: string | undefined): Promise<string | null> {
+export async function parseSessionToken(
+  token: string | undefined
+): Promise<{ userId: string; nonce: string } | null> {
   if (!token) return null;
 
-  const separatorIndex = token.lastIndexOf(".");
-  if (separatorIndex <= 0) return null;
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
 
-  const userId = token.slice(0, separatorIndex);
-  const signature = token.slice(separatorIndex + 1);
-  if (!userId || !signature) return null;
+  const [userId, nonce, signature] = parts;
+  if (!userId || !nonce || !signature) return null;
 
-  const expected = await signUserId(userId);
+  const expected = await sign(`${userId}:${nonce}`);
   if (signature.length !== expected.length) return null;
 
   let mismatch = 0;
@@ -55,5 +58,5 @@ export async function parseSessionToken(token: string | undefined): Promise<stri
     mismatch |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
   }
 
-  return mismatch === 0 ? userId : null;
+  return mismatch === 0 ? { userId, nonce } : null;
 }

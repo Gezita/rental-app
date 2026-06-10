@@ -3,21 +3,30 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(cuid())
+  email        String   @unique
+  password     String
+  name         String?
+  sessionNonce String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   properties Property[]
   documents  Document[]
   settings   UserSettings?
+}
+
+model LoginAttempt {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  count       Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
 }
 
 model UserSettings {

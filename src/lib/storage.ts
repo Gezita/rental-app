@@ -78,12 +78,39 @@ export function validateUploadedFile(file: File) {
   }
 }
 
+const HEIC_TYPES = new Set(["image/heic", "image/heif"]);
+
+export async function validateMagicBytes(buffer: Buffer, declaredMimeType: string): Promise<void> {
+  const { fileTypeFromBuffer } = await import("file-type");
+  const detected = await fileTypeFromBuffer(buffer);
+
+  if (!detected) {
+    throw new Error("File type could not be determined from content.");
+  }
+
+  const normalizedDeclared = declaredMimeType === "image/jpg" ? "image/jpeg" : declaredMimeType;
+
+  // HEIC and HEIF are interchangeable identifiers for the same format
+  if (HEIC_TYPES.has(normalizedDeclared) && HEIC_TYPES.has(detected.mime)) return;
+
+  if (detected.mime !== normalizedDeclared) {
+    throw new Error("File content does not match the declared file type.");
+  }
+}
+
+function resolveUploadPath(filePath: string): string {
+  const base = path.resolve(process.cwd(), UPLOAD_DIR);
+  const absolutePath = path.resolve(process.cwd(), filePath);
+  if (!absolutePath.startsWith(base + path.sep) && absolutePath !== base) {
+    throw new Error("Invalid file path");
+  }
+  return absolutePath;
+}
+
 export async function readDocumentFile(filePath: string) {
-  const absolutePath = path.join(process.cwd(), filePath);
-  return readFile(absolutePath);
+  return readFile(resolveUploadPath(filePath));
 }
 
 export async function deleteDocumentFile(filePath: string) {
-  const absolutePath = path.join(process.cwd(), filePath);
-  await unlink(absolutePath).catch(() => undefined);
+  await unlink(resolveUploadPath(filePath)).catch(() => undefined);
 }
