@@ -5,6 +5,7 @@ import { LogOut, Menu, X } from "lucide-react";
 import { signOutAction } from "@/app/actions/auth";
 import { dashboardNavItems } from "@/lib/navigation";
 import { BrandLogo } from "./brand-logo";
+import { GlobalSearch } from "./global-search";
 import { MobileNavGroup } from "./nav-link";
 
 type AppHeaderProps = {
@@ -39,7 +40,10 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface/95 px-4 backdrop-blur-md lg:hidden sm:px-6">
       <BrandLogo size="sm" variant="icon" />
 
-      <div className="relative" ref={menuRef}>
+      <div className="flex items-center gap-2">
+        <GlobalSearch enableHotkey={false} variant="icon" />
+
+        <div className="relative" ref={menuRef}>
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
@@ -51,7 +55,7 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
         </button>
 
         {open && (
-          <div className="absolute right-0 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-lg)]">
+          <div className="motion-pop absolute right-0 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-surface shadow-[var(--shadow-lg)]">
             <div className="border-b border-border-subtle bg-surface-muted/50 px-4 py-3">
               <p className="truncate text-sm font-medium text-foreground">
                 {userName || "Landlord"}
@@ -97,8 +101,9 @@ export function AppHeader({ userName, userEmail }: AppHeaderProps) {
                 </button>
               </form>
             </div>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

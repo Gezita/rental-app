@@ -53,7 +53,7 @@ export function FlashAlert({
   return (
     <Alert
       variant={variant}
-      className={cn("relative pr-10", className)}
+      className={cn("motion-fade-in-up relative pr-10", className)}
       role="status"
     >
       {children}

@@ -19,6 +19,7 @@ export async function saveUploadedFile(
     unitId?: string;
     tenantId?: string;
     notes?: string;
+    tags?: string;
   }
 ) {
   validateUploadedFile(file);
@@ -34,5 +35,6 @@ export async function saveUploadedFile(
     unitId: options.unitId,
     tenantId: options.tenantId,
     notes: options.notes,
+    tags: options.tags,
   });
 }

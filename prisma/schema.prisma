@@ -16,9 +16,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  properties Property[]
-  documents  Document[]
-  settings   UserSettings?
+  properties      Property[]
+  documents       Document[]
+  settings        UserSettings?
+  utilityProfiles UtilityProfile[]
 }
 
 model LoginAttempt {
@@ -153,6 +154,20 @@ model UtilityRule {
   unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
 
   @@unique([unitId, utilityType])
+}
+
+model UtilityProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  /// JSON array of { utilityType, tenantPays, includedInRent, percentage } (String for SQLite compatibility)
+  rules     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
 }
 
 model UtilityBill {

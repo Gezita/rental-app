@@ -57,12 +57,12 @@ Full task checklists: [docs/roadmap/phases.md](./docs/roadmap/phases.md)
 - [ ] Production secrets and cron
 
 ### Phase 1 — Workspace speed
-- [ ] Global search (⌘K)
-- [ ] Property document hub
-- [ ] Document tags
-- [ ] Utility profiles
-- [ ] Dashboard action focus + mobile web polish
-- [ ] Animation A1–A3
+- [x] Global search (⌘K)
+- [x] Property document hub
+- [x] Document tags
+- [x] Utility profiles
+- [ ] Dashboard action focus + mobile web polish (dashboard done; mobile pending)
+- [ ] Animation A1–A3 (motion tokens + reduced-motion done)
 
 ### Phase 2 — Differentiators
 - [ ] Property timeline
@@ -117,9 +117,9 @@ Full task checklists: [docs/roadmap/phases.md](./docs/roadmap/phases.md)
 | Units | Monthly (CAD) |
 |-------|---------------|
 | 10 | $10 |
-| 11 | $12 |
-| 15 | $20 |
-| 25 | $40 |
+| 11 | $22 |
+| 15 | $30 |
+| 25 | $50 |
 
 $1/unit for units 1–10; $2/unit for each unit above 10. Local install stays **free**.
 

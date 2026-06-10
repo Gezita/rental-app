@@ -78,6 +78,16 @@ export async function uploadDocumentAction(formData: FormData) {
   const propertyId = String(formData.get("propertyId") || "") || undefined;
   const unitId = String(formData.get("unitId") || "") || undefined;
   const category = String(formData.get("category") || "other");
+  const tagsRaw = String(formData.get("tags") || "");
+  const tags =
+    Array.from(
+      new Set(
+        tagsRaw
+          .split(",")
+          .map((tag) => tag.trim().toLowerCase())
+          .filter(Boolean)
+      )
+    ).join(", ") || undefined;
   const file = formData.get("file") as File | null;
 
   if (!file || file.size === 0) redirect("/documents?error=file");
@@ -96,6 +106,7 @@ export async function uploadDocumentAction(formData: FormData) {
       | "other",
     propertyId,
     unitId,
+    tags,
   });
 
   revalidatePath("/documents");

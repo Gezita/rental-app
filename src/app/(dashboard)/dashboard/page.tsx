@@ -124,21 +124,43 @@ export default async function DashboardPage() {
 
   const leasesEndingSoon = await getLeasesEndingSoon(user.id, reminderDays);
 
-  const overdueStatements = await prisma.statement.findMany({
-    where: {
-      unit: { property: { userId: user.id } },
-      status: "overdue",
-    },
-    select: {
-      totalDueCents: true,
-      paidAmountCents: true,
-    },
-  });
+  const [overdueStatements, openMaintenanceByProperty] = await Promise.all([
+    prisma.statement.findMany({
+      where: {
+        unit: { property: { userId: user.id } },
+        status: "overdue",
+      },
+      select: {
+        totalDueCents: true,
+        paidAmountCents: true,
+        unit: { select: { propertyId: true } },
+      },
+    }),
+    prisma.maintenanceRecord.groupBy({
+      by: ["propertyId"],
+      where: {
+        property: { userId: user.id },
+        status: { in: ["planned", "in_progress"] },
+      },
+      _count: { _all: true },
+    }),
+  ]);
 
   const overdueCount = overdueStatements.length;
   const overdueCents = overdueStatements.reduce(
     (sum, statement) => sum + (statement.totalDueCents - statement.paidAmountCents),
     0
+  );
+
+  const overdueByProperty = new Map<string, { count: number; cents: number }>();
+  for (const statement of overdueStatements) {
+    const entry = overdueByProperty.get(statement.unit.propertyId) ?? { count: 0, cents: 0 };
+    entry.count += 1;
+    entry.cents += statement.totalDueCents - statement.paidAmountCents;
+    overdueByProperty.set(statement.unit.propertyId, entry);
+  }
+  const maintenanceCountByProperty = new Map(
+    openMaintenanceByProperty.map((row) => [row.propertyId, row._count._all])
   );
 
   const [utilityRuleCount, statementCount, utilityBillCount, tenantUnit] = await Promise.all([
@@ -539,6 +561,8 @@ export default async function DashboardPage() {
               <ul className="space-y-2">
                 {recentProperties.map((property) => {
                   const occupied = property.units.filter((u) => u.tenants.length > 0).length;
+                  const overdue = overdueByProperty.get(property.id);
+                  const openMaintenanceCount = maintenanceCountByProperty.get(property.id) ?? 0;
                   return (
                     <ListRow key={property.id}>
                       <div className="min-w-0">
@@ -546,6 +570,20 @@ export default async function DashboardPage() {
                         <p className="text-muted">
                           {property.city} · {occupied}/{property.units.length} occupied
                         </p>
+                        {(overdue || openMaintenanceCount > 0) && (
+                          <p className="mt-1 flex flex-wrap gap-1.5">
+                            {overdue && (
+                              <Badge variant="danger">
+                                {formatMoney(overdue.cents)} overdue
+                              </Badge>
+                            )}
+                            {openMaintenanceCount > 0 && (
+                              <Badge variant="warning">
+                                {openMaintenanceCount} maintenance
+                              </Badge>
+                            )}
+                          </p>
+                        )}
                       </div>
                       <Link href={`/properties/${property.id}`}>
                         <Button variant="outline" size="sm">

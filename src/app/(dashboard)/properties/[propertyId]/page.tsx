@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDollarSign, Home, Shield, Wrench } from "lucide-react";
+import { CircleDollarSign, FileText, FolderOpen, Home, Shield, Wrench } from "lucide-react";
 import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
+import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS } from "@/lib/document-constants";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
@@ -55,6 +56,28 @@ export default async function PropertyDetailPage({
   });
 
   if (!property) notFound();
+
+  const [documentCounts, recentPropertyDocuments] = await Promise.all([
+    prisma.document.groupBy({
+      by: ["category"],
+      where: { userId: user.id, propertyId },
+      _count: { _all: true },
+    }),
+    prisma.document.findMany({
+      where: { userId: user.id, propertyId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, fileName: true, category: true, createdAt: true },
+    }),
+  ]);
+
+  const documentCountByCategory = new Map(
+    documentCounts.map((row) => [row.category, row._count._all])
+  );
+  const totalPropertyDocuments = documentCounts.reduce(
+    (sum, row) => sum + row._count._all,
+    0
+  );
 
   const monthlyRent = property.units.reduce((s, u) => s + u.rentAmountCents, 0);
   const occupiedUnits = property.units.filter((u) => u.tenants.length > 0).length;
@@ -278,6 +301,86 @@ export default async function PropertyDetailPage({
                 })}
               </tbody>
             </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-primary" />
+              <CardTitle>Documents</CardTitle>
+            </div>
+            <CardDescription>
+              {totalPropertyDocuments === 0
+                ? "No documents filed for this property yet."
+                : `${totalPropertyDocuments} document${totalPropertyDocuments === 1 ? "" : "s"} filed for this property.`}
+            </CardDescription>
+          </div>
+          <Link href={`/documents?propertyId=${propertyId}`}>
+            <Button variant="outline" size="sm">
+              Open document hub
+            </Button>
+          </Link>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {DOCUMENT_CATEGORIES.map((category) => {
+              const count = documentCountByCategory.get(category) ?? 0;
+              if (count === 0) return null;
+              return (
+                <Link
+                  key={category}
+                  href={`/documents?propertyId=${propertyId}&category=${category}`}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-[var(--shadow-sm)] transition-colors hover:border-primary/20 hover:bg-primary-muted/30"
+                >
+                  <FolderOpen className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-foreground">
+                      {DOCUMENT_CATEGORY_LABELS[category]}
+                    </span>
+                    <span className="block text-xs text-muted">
+                      {count} file{count === 1 ? "" : "s"}
+                    </span>
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+
+          {recentPropertyDocuments.length > 0 && (
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                Recent uploads
+              </p>
+              <ul className="divide-y divide-border-subtle">
+                {recentPropertyDocuments.map((doc) => (
+                  <li key={doc.id}>
+                    <Link
+                      href={`/api/documents/${doc.id}`}
+                      target="_blank"
+                      className="flex items-center justify-between gap-3 rounded-lg py-2.5 text-sm transition-colors hover:bg-surface-muted/60"
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <FileText className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+                        <span className="truncate font-medium text-foreground">
+                          {doc.fileName}
+                        </span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-3">
+                        <Badge variant="secondary">
+                          {DOCUMENT_CATEGORY_LABELS[doc.category]}
+                        </Badge>
+                        <span className="text-xs text-muted">
+                          {doc.createdAt.toLocaleDateString("en-CA")}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </CardContent>
       </Card>

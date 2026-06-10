@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { signOutAction } from "@/app/actions/auth";
 import { AppHeader } from "./app-header";
 import { BrandLogo } from "./brand-logo";
+import { GlobalSearch } from "./global-search";
 import { NavGroup } from "./nav-link";
 
 export async function DashboardShell({ children }: { children: React.ReactNode }) {
@@ -22,6 +23,9 @@ export async function DashboardShell({ children }: { children: React.ReactNode }
         <aside className="fixed inset-y-0 left-0 z-10 hidden w-64 flex-col border-r border-border bg-surface shadow-[var(--shadow-sm)] lg:flex">
           <div className="flex h-16 items-center border-b border-border px-5">
             <BrandLogo variant="full" />
+          </div>
+          <div className="px-3 pt-3">
+            <GlobalSearch />
           </div>
           <nav className="flex-1 space-y-1 p-3">
             {dashboardNavItems.map((item) => (

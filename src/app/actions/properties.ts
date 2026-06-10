@@ -450,6 +450,104 @@ export async function saveUtilityRulesAction(unitId: string, formData: FormData)
   redirect(`/properties/${unit.propertyId}/units/${unitId}/utilities?saved=1`);
 }
 
+// ── Utility Profile Actions ──────────────────────────────────────────────────
+
+export async function saveUtilityProfileAction(unitId: string, formData: FormData) {
+  const user = await requireUser();
+  const unit = await requireUnit(user.id, unitId);
+  const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
+
+  const parsedName = zRequiredString.safeParse(formData.get("profileName"));
+  if (!parsedName.success) {
+    redirect(`${utilitiesPath}?error=profile_name`);
+  }
+  const name = parsedName.data;
+
+  const rules = await prisma.utilityRule.findMany({ where: { unitId } });
+  if (rules.length === 0) {
+    redirect(`${utilitiesPath}?error=profile_empty`);
+  }
+
+  const { serializeProfileRules } = await import("@/lib/utility-profiles");
+  const serialized = serializeProfileRules(
+    rules.map((rule) => ({
+      utilityType: rule.utilityType,
+      tenantPays: rule.tenantPays,
+      includedInRent: rule.includedInRent,
+      percentage: rule.percentage,
+    }))
+  );
+
+  await prisma.utilityProfile.upsert({
+    where: { userId_name: { userId: user.id, name } },
+    create: { userId: user.id, name, rules: serialized },
+    update: { rules: serialized },
+  });
+
+  revalidatePath(utilitiesPath);
+  redirect(`${utilitiesPath}?saved=profile`);
+}
+
+export async function applyUtilityProfileAction(unitId: string, formData: FormData) {
+  const user = await requireUser();
+  const unit = await requireUnit(user.id, unitId);
+  const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
+
+  const profileId = String(formData.get("profileId") || "");
+  const profile = await prisma.utilityProfile.findFirst({
+    where: { id: profileId, userId: user.id },
+  });
+  if (!profile) {
+    redirect(`${utilitiesPath}?error=profile_not_found`);
+  }
+
+  const { parseProfileRules } = await import("@/lib/utility-profiles");
+  const rules = parseProfileRules(profile.rules);
+  if (rules.length === 0) {
+    redirect(`${utilitiesPath}?error=profile_invalid`);
+  }
+
+  for (const rule of rules) {
+    await prisma.utilityRule.upsert({
+      where: { unitId_utilityType: { unitId, utilityType: rule.utilityType } },
+      create: {
+        unitId,
+        utilityType: rule.utilityType,
+        tenantPays: rule.tenantPays,
+        includedInRent: rule.includedInRent,
+        percentage: rule.percentage,
+      },
+      update: {
+        tenantPays: rule.tenantPays,
+        includedInRent: rule.includedInRent,
+        percentage: rule.percentage,
+      },
+    });
+  }
+
+  const { recalculatePropertyUtilitySplits } = await import("@/lib/statements");
+  await recalculatePropertyUtilitySplits(unit.propertyId);
+
+  revalidatePath(utilitiesPath);
+  revalidatePath(`/properties/${unit.propertyId}/utility-bills`);
+  revalidatePath("/billing/statements");
+  redirect(`${utilitiesPath}?saved=profile_applied`);
+}
+
+export async function deleteUtilityProfileAction(unitId: string, formData: FormData) {
+  const user = await requireUser();
+  const unit = await requireUnit(user.id, unitId);
+  const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
+
+  const profileId = String(formData.get("profileId") || "");
+  await prisma.utilityProfile.deleteMany({
+    where: { id: profileId, userId: user.id },
+  });
+
+  revalidatePath(utilitiesPath);
+  redirect(`${utilitiesPath}?saved=profile_deleted`);
+}
+
 // ── Utility Bill Actions ──────────────────────────────────────────────────────
 
 export async function createUtilityBillAction(propertyId: string, formData: FormData) {

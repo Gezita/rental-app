@@ -44,20 +44,20 @@ Aligns with strategy Priority 1 gaps and UX success metrics.
 
 #### Document vault & search
 
-- [ ] **1.1** Global search (⌘K) — documents, tenants, properties, statements
-- [ ] **1.2** Property document hub — folder view per property (leases, bills, insurance, tax, photos)
-- [ ] **1.3** Document tags UI — use existing `Document.tags` field
-- [ ] **1.4** Filename + category filters polish on `/documents`
+- [x] **1.1** Global search (⌘K) — documents, tenants, properties, statements
+- [x] **1.2** Property document hub — folder view per property (leases, bills, insurance, tax, photos)
+- [x] **1.3** Document tags UI — use existing `Document.tags` field
+- [x] **1.4** Filename + category filters polish on `/documents` (incl. tag filter)
 
 #### Utility signature feature
 
-- [ ] **1.5** Utility profiles — save/apply presets (60/40, equal split, basement/main)
+- [x] **1.5** Utility profiles — save/apply presets (60/40, equal split, basement/main)
 - [ ] **1.6** Billing workflow polish — blocked units, split preview clarity
 
 #### Dashboard & navigation
 
-- [ ] **1.7** Dashboard action focus — upcoming tasks, recent uploads, property cards
-- [ ] **1.8** Per-property quick status on dashboard (occupancy, overdue, open maintenance)
+- [x] **1.7** Dashboard action focus — upcoming tasks, recent uploads, property cards
+- [x] **1.8** Per-property quick status on dashboard (occupancy, overdue, open maintenance)
 
 #### Mobile web (not secondary)
 
@@ -68,7 +68,7 @@ Aligns with strategy Priority 1 gaps and UX success metrics.
 
 #### Motion (light polish)
 
-- [ ] **1.13** Motion tokens + `prefers-reduced-motion` — see [ux-and-animation.md](./ux-and-animation.md)
+- [x] **1.13** Motion tokens + `prefers-reduced-motion` — see [ux-and-animation.md](./ux-and-animation.md)
 - [ ] **1.14** Skeleton loaders on dashboard, statements, properties
 - [ ] **1.15** Mobile nav slide; flash alert enter/exit
 

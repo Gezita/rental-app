@@ -7,6 +7,7 @@ import { FlashAlert } from "@/components/flash-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SubmitButton } from "@/components/submit-button";
 import type { DocumentCategory } from "@prisma/client";
+import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS } from "@/lib/document-constants";
 import {
   Button,
   Card,
@@ -28,6 +29,7 @@ export default async function DocumentsPage({
     category?: string;
     propertyId?: string;
     q?: string;
+    tag?: string;
   }>;
 }) {
   const user = await requireUser();
@@ -44,6 +46,7 @@ export default async function DocumentsPage({
     userId: string;
     category?: DocumentCategory;
     propertyId?: string;
+    tags?: { contains: string };
     OR?: { fileName: { contains: string } }[];
   } = { userId: user.id };
 
@@ -55,6 +58,9 @@ export default async function DocumentsPage({
   }
   if (params.q?.trim()) {
     where.OR = [{ fileName: { contains: params.q.trim() } }];
+  }
+  if (params.tag?.trim()) {
+    where.tags = { contains: params.tag.trim().toLowerCase() };
   }
 
   const documents = await prisma.document.findMany({
@@ -101,7 +107,7 @@ export default async function DocumentsPage({
           <CardTitle>Filter Documents</CardTitle>
         </CardHeader>
         <CardContent>
-          <form method="get" className="grid gap-4 md:grid-cols-4">
+          <form method="get" className="grid gap-4 md:grid-cols-5">
             <div className="space-y-2">
               <Label htmlFor="q">Search</Label>
               <Input id="q" name="q" placeholder="File name..." defaultValue={params.q || ""} />
@@ -110,16 +116,11 @@ export default async function DocumentsPage({
               <Label htmlFor="category">Category</Label>
               <Select id="category" name="category" defaultValue={params.category || "all"}>
                 <option value="all">All categories</option>
-                <option value="lease">Lease</option>
-                <option value="utility_bill">Utility Bill</option>
-                <option value="statement">Statement</option>
-                <option value="receipt">Receipt</option>
-                <option value="maintenance_invoice">Maintenance Invoice</option>
-                <option value="maintenance_receipt">Maintenance Receipt</option>
-                <option value="ltb_notice">LTB Notice</option>
-                <option value="tax_report">Tax Report</option>
-                <option value="photo">Photo</option>
-                <option value="other">Other</option>
+                {DOCUMENT_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {DOCUMENT_CATEGORY_LABELS[category]}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="space-y-2">
@@ -132,6 +133,10 @@ export default async function DocumentsPage({
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="tag">Tag</Label>
+              <Input id="tag" name="tag" placeholder="e.g. insurance" defaultValue={params.tag || ""} />
             </div>
             <div className="flex items-end gap-2">
               <SubmitButton pendingLabel="Applying…">Apply</SubmitButton>
@@ -150,20 +155,15 @@ export default async function DocumentsPage({
           <CardTitle>Upload Document</CardTitle>
         </CardHeader>
         <CardContent>
-          <form action={uploadDocumentAction} className="grid gap-4 md:grid-cols-4" encType="multipart/form-data">
+          <form action={uploadDocumentAction} className="grid gap-4 md:grid-cols-5" encType="multipart/form-data">
             <div className="space-y-2">
               <Label htmlFor="uploadCategory">Category</Label>
               <Select id="uploadCategory" name="category" defaultValue="other">
-                <option value="lease">Lease</option>
-                <option value="utility_bill">Utility Bill</option>
-                <option value="statement">Statement</option>
-                <option value="receipt">Receipt</option>
-                <option value="maintenance_invoice">Maintenance Invoice</option>
-                <option value="maintenance_receipt">Maintenance Receipt</option>
-                <option value="ltb_notice">LTB Notice</option>
-                <option value="tax_report">Tax Report</option>
-                <option value="photo">Photo</option>
-                <option value="other">Other</option>
+                {DOCUMENT_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {DOCUMENT_CATEGORY_LABELS[category]}
+                  </option>
+                ))}
               </Select>
             </div>
             <div className="space-y-2">
@@ -176,6 +176,14 @@ export default async function DocumentsPage({
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="uploadTags">Tags (optional)</Label>
+              <Input
+                id="uploadTags"
+                name="tags"
+                placeholder="comma separated, e.g. insurance, 2026"
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="file">File</Label>
@@ -204,6 +212,7 @@ export default async function DocumentsPage({
                 fileName: doc.fileName,
                 category: doc.category,
                 propertyName: doc.property?.name ?? null,
+                tags: doc.tags,
                 createdAt: doc.createdAt.toISOString(),
               }))}
             />

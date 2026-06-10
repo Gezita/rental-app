@@ -10,6 +10,7 @@ type DocumentRow = {
   fileName: string;
   category: string;
   propertyName: string | null;
+  tags: string | null;
   createdAt: string;
 };
 
@@ -78,6 +79,7 @@ export function DocumentsTable({ documents }: DocumentsTableProps) {
             <Th>File</Th>
             <Th>Category</Th>
             <Th>Property</Th>
+            <Th>Tags</Th>
             <Th>Date</Th>
             <Th></Th>
           </tr>
@@ -98,6 +100,23 @@ export function DocumentsTable({ documents }: DocumentsTableProps) {
                 <Badge variant="secondary">{doc.category.replaceAll("_", " ")}</Badge>
               </Td>
               <Td>{doc.propertyName || "—"}</Td>
+              <Td>
+                {doc.tags ? (
+                  <span className="flex flex-wrap gap-1">
+                    {doc.tags.split(",").map((tag) => {
+                      const trimmed = tag.trim();
+                      if (!trimmed) return null;
+                      return (
+                        <Link key={trimmed} href={`/documents?tag=${encodeURIComponent(trimmed)}`}>
+                          <Badge>{trimmed}</Badge>
+                        </Link>
+                      );
+                    })}
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </Td>
               <Td>{new Date(doc.createdAt).toLocaleDateString()}</Td>
               <Td>
                 <div className="flex items-center gap-2">
