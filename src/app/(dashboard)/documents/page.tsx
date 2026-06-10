@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { uploadDocumentAction } from "@/app/actions/app";
+import { uploadDocumentAction } from "@/app/actions";
 import { DocumentsTable } from "@/components/documents-table";
-import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SubmitButton } from "@/components/submit-button";
@@ -66,10 +65,9 @@ export default async function DocumentsPage({
 
   return (
     <div className="space-y-6">
-      <PageBackNav />
       <PageHeader
         title="Documents"
-        description="All leases, bills, statements, and receipts"
+        description="Leases, bills, statements, receipts, and Ontario notices — your landlord filing cabinet."
       />
 
       {params.uploaded && (

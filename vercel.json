@@ -1,0 +1,5 @@
+{
+  "buildCommand": "prisma db push --skip-generate && tsx prisma/seed.ts && next build",
+  "framework": "nextjs",
+  "installCommand": "npm install"
+}

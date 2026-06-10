@@ -1,11 +1,10 @@
 import { prisma } from "@/lib/db";
 import type { StatementStatus } from "@prisma/client";
-import { MONTH_NAMES, UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
+import { MONTH_NAMES } from "@/lib/billing-constants";
 import { formatMoney } from "@/lib/money";
+import { getStatementOutstandingCents } from "@/lib/payment-status";
 import { rentDueDate } from "@/lib/validation";
 import { utilityBillsForStatementMonthWhere } from "@/lib/utility-bill-month";
-
-export { MONTH_NAMES, UTILITY_TYPE_LABELS };
 
 export async function calculateUtilitySplits(
   utilityBillId: string,
@@ -111,15 +110,6 @@ export function buildStatementNumber(unitName: string, month: number, year: numb
 export function getPriorStatementPeriod(month: number, year: number) {
   if (month === 1) return { month: 12, year: year - 1 };
   return { month: month - 1, year };
-}
-
-export function getStatementOutstandingCents(statement: {
-  totalDueCents: number;
-  paidAmountCents: number;
-  status: string;
-}): number {
-  if (statement.status === "paid" || statement.status === "cancelled") return 0;
-  return Math.max(0, statement.totalDueCents - statement.paidAmountCents);
 }
 
 const ROLL_FORWARD_STATUSES = ["sent", "overdue", "partial"] as const;
@@ -251,6 +241,28 @@ export async function loadUtilityBillsForStatementMonth(
     where: utilityBillsForStatementMonthWhere(propertyId, month, year),
     include: { splits: true, document: true },
   });
+}
+
+export async function computeStatementTotalsForUnit(
+  unitId: string,
+  month: number,
+  year: number,
+  options?: {
+    utilityBills?: Awaited<ReturnType<typeof loadUtilityBillsForStatementMonth>>;
+    extras?: StatementGenerationExtras;
+  }
+) {
+  const unit = await prisma.unit.findFirst({
+    where: { id: unitId },
+    select: { id: true, name: true, rentAmountCents: true, propertyId: true },
+  });
+  if (!unit) return null;
+
+  const utilityBills =
+    options?.utilityBills ??
+    (await loadUtilityBillsForStatementMonth(unit.propertyId, month, year));
+
+  return buildStatementLineItems(unit, month, year, utilityBills, options?.extras);
 }
 
 async function replaceDraftStatement(

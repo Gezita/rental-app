@@ -1,16 +1,5 @@
 import Link from "next/link";
-import {
-  AlertCircle,
-  Banknote,
-  Building2,
-  CircleDollarSign,
-  Clock,
-  FileText,
-  Home,
-  PiggyBank,
-  Users,
-  Wrench,
-} from "lucide-react";
+import { AlertCircle, Building2, Clock, FileText } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -23,12 +12,13 @@ import {
   PAYMENT_STATUS_LABELS,
 } from "@/lib/payment-status";
 import { aggregateStatementStats } from "@/lib/statement-stats";
-import { PaymentStatusBadge } from "@/components/payment-status-badge";
+import { HeroKpiRow } from "@/components/dashboard/hero-kpi-row";
 import { ListRow } from "@/components/dashboard/list-row";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { SectionHeading } from "@/components/dashboard/section-heading";
-import { StatCard } from "@/components/dashboard/stat-card";
+import { StatGroup } from "@/components/dashboard/stat-group";
+import { computeDashboardHeroStats } from "@/lib/dashboard-hero-stats";
 import { FlashAlert } from "@/components/flash-alert";
 import {
   Badge,
@@ -40,6 +30,8 @@ import {
   CardTitle,
 } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import { MONTH_NAMES } from "@/lib/billing-constants";
+import { buildBillingNextSteps, computeBillingReadiness } from "@/lib/billing-workflow";
 
 const RECENT_PROPERTY_LIMIT = 5;
 
@@ -75,15 +67,29 @@ export default async function DashboardPage() {
     },
   });
 
-  const { outstandingCents, collectedCents, counts: paymentCounts } =
-    aggregateStatementStats(statements);
+  const { outstandingCents, counts: paymentCounts } = aggregateStatementStats(statements);
 
-  const openMaintenance = await prisma.maintenanceRecord.count({
-    where: {
-      property: { userId: user.id },
-      status: { in: ["planned", "in_progress"] },
-    },
-  });
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  const [openMaintenance, monthlyPayments] = await Promise.all([
+    prisma.maintenanceRecord.count({
+      where: {
+        property: { userId: user.id },
+        status: { in: ["planned", "in_progress"] },
+      },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        statement: { unit: { property: { userId: user.id } } },
+        paymentDate: { gte: monthStart, lte: monthEnd },
+      },
+      _sum: { amountCents: true },
+    }),
+  ]);
 
   const recentDocuments = await prisma.document.findMany({
     where: { userId: user.id },
@@ -92,13 +98,7 @@ export default async function DashboardPage() {
     include: { property: true },
   });
 
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
   const propertyIds = properties.map((p) => p.id);
-  const currentMonth = now.getMonth() + 1;
-  const currentYear = now.getFullYear();
 
   const billsByProperty =
     propertyIds.length > 0
@@ -124,20 +124,24 @@ export default async function DashboardPage() {
 
   const leasesEndingSoon = await getLeasesEndingSoon(user.id, reminderDays);
 
-  const unpaidStatements = await prisma.statement.findMany({
+  const overdueStatements = await prisma.statement.findMany({
     where: {
       unit: { property: { userId: user.id } },
-      status: { in: ["sent", "overdue"] },
+      status: "overdue",
     },
-    include: {
-      tenant: true,
-      unit: { include: { property: true } },
+    select: {
+      totalDueCents: true,
+      paidAmountCents: true,
     },
-    orderBy: { dueDate: "asc" },
-    take: 5,
   });
 
-  const [utilityRuleCount, statementCount, tenantUnit] = await Promise.all([
+  const overdueCount = overdueStatements.length;
+  const overdueCents = overdueStatements.reduce(
+    (sum, statement) => sum + (statement.totalDueCents - statement.paidAmountCents),
+    0
+  );
+
+  const [utilityRuleCount, statementCount, utilityBillCount, tenantUnit] = await Promise.all([
     prisma.utilityRule.count({
       where: {
         unit: { property: { userId: user.id } },
@@ -148,6 +152,9 @@ export default async function DashboardPage() {
     }),
     prisma.statement.count({
       where: { unit: { property: { userId: user.id } } },
+    }),
+    prisma.utilityBill.count({
+      where: { property: { userId: user.id } },
     }),
     prisma.unit.findFirst({
       where: {
@@ -191,19 +198,80 @@ export default async function DashboardPage() {
       id: "bills",
       label: "Import monthly bill amounts",
       description: "Upload an .xlsx or enter amounts for the current month.",
-      done: propertiesMissingBills.length === 0 && portfolio.unitCount > 0,
+      done: utilityBillCount > 0,
       href: firstProperty
         ? `/properties/${firstProperty.id}/utility-bills/import`
-        : "/utility-bills",
+        : "/billing/utility-bills",
     },
     {
       id: "statements",
       label: "Generate your first statements",
       description: "Create draft statements from rent and utility data.",
       done: statementCount > 0,
-      href: "/statements/generate",
+      href: "/billing/statements/generate",
     },
   ];
+
+  const showOnboardingChecklist = statementCount === 0 && utilityBillCount === 0;
+
+  const [monthBills, monthStatements] = await Promise.all([
+    propertyIds.length > 0
+      ? prisma.utilityBill.findMany({
+          where: {
+            propertyId: { in: propertyIds },
+            billMonth: currentMonth,
+            billYear: currentYear,
+          },
+          select: { propertyId: true, utilityType: true },
+        })
+      : Promise.resolve([]),
+    propertyIds.length > 0
+      ? prisma.statement.findMany({
+          where: {
+            statementMonth: currentMonth,
+            statementYear: currentYear,
+            unit: { propertyId: { in: propertyIds } },
+          },
+          select: {
+            status: true,
+            unitId: true,
+            statementMonth: true,
+            statementYear: true,
+            unit: { select: { name: true, propertyId: true } },
+          },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const workflowProperties = properties.map((property) => ({
+    id: property.id,
+    name: property.name,
+    unitCount: property.units.length,
+    bills: monthBills
+      .filter((bill) => bill.propertyId === property.id)
+      .map((bill) => ({ utilityType: bill.utilityType })),
+    statements: monthStatements
+      .filter((statement) => statement.unit.propertyId === property.id)
+      .map((statement) => ({
+        unitId: statement.unitId,
+        unitName: statement.unit.name,
+        status: statement.status,
+        statementMonth: statement.statementMonth,
+        statementYear: statement.statementYear,
+      })),
+  }));
+
+  const monthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
+  const billingReadiness = computeBillingReadiness(workflowProperties);
+  const billingNextSteps = buildBillingNextSteps(workflowProperties, monthLabel);
+
+  const heroStats = computeDashboardHeroStats({
+    portfolio,
+    monthlyCollectedCents: monthlyPayments._sum.amountCents ?? 0,
+    outstandingCents,
+    overdueCount,
+    openMaintenance,
+  });
 
   const displayName = user.name || user.email.split("@")[0];
   const vacantUnits = portfolio.unitCount - portfolio.occupiedUnitCount;
@@ -211,7 +279,7 @@ export default async function DashboardPage() {
   const needsAttention =
     propertiesMissingBills.length > 0 ||
     leasesEndingSoon.length > 0 ||
-    unpaidStatements.length > 0;
+    overdueCount > 0;
 
   const occupancyHint =
     portfolio.unitCount === 0
@@ -227,18 +295,69 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <PageHeader
         title={`Hello, ${displayName}`}
-        description="Portfolio snapshot, rent collection, and items that need your attention."
+        description="What needs your attention today."
         actions={
           <>
             <Link href="/properties/new">
-              <Button>Add Property</Button>
+              <Button>Add property</Button>
             </Link>
-            <Link href="/statements/generate">
-              <Button variant="outline">Generate Statements</Button>
+            <Link href="/billing/statements/generate">
+              <Button variant="outline">Generate monthly statements</Button>
             </Link>
           </>
         }
       />
+
+      <HeroKpiRow stats={heroStats} monthLabel={monthLabel} unitCount={portfolio.unitCount} />
+
+      {properties.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{monthLabel} billing</CardTitle>
+            <CardDescription>
+              {billingReadiness.readinessPercent}% of properties have all utility bills uploaded
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex h-2 overflow-hidden rounded-full bg-surface-muted">
+              <div
+                className="rounded-full bg-primary transition-all"
+                style={{ width: `${billingReadiness.readinessPercent}%` }}
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/billing">
+                <Button variant="outline" size="sm">
+                  Open monthly workflow
+                </Button>
+              </Link>
+              <Link href="/billing/statements/generate">
+                <Button size="sm">Generate monthly statements</Button>
+              </Link>
+              <Link href="/billing/utility-bills">
+                <Button variant="ghost" size="sm">
+                  Upload utility bill
+                </Button>
+              </Link>
+            </div>
+            {billingNextSteps.length > 0 && (
+              <div className="rounded-xl border border-border bg-surface-muted/40 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Next steps</p>
+                <ol className="mt-2 space-y-2">
+                  {billingNextSteps.slice(0, 3).map((step, index) => (
+                    <li key={step.id} className="flex items-start gap-2 text-sm">
+                      <span className="font-semibold text-primary-hover">{index + 1}.</span>
+                      <Link href={step.href} className="font-medium text-foreground hover:text-primary-hover">
+                        {step.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {settings?.autoSendStatements && (
         <FlashAlert variant="info" clearParams={[]}>
@@ -300,122 +419,62 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           )}
-          {unpaidStatements.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-danger" />
-                  <CardTitle>Unpaid statements</CardTitle>
+          {overdueCount > 0 && (
+            <Card className="border-danger/25">
+              <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-muted text-danger">
+                    <AlertCircle className="h-5 w-5" aria-hidden />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted">Overdue statements</p>
+                    <p className="text-xl font-semibold tabular-nums text-danger">
+                      {formatMoney(overdueCents)}{" "}
+                      <span className="text-base font-medium text-muted-foreground">
+                        · {overdueCount} statement{overdueCount === 1 ? "" : "s"}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-                <CardDescription>Sent or overdue — review and follow up</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {unpaidStatements.map((s) => (
-                    <ListRow key={s.id}>
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground">{s.statementNumber}</p>
-                        <p className="text-muted">
-                          {s.unit.property.name} / {s.unit.name}
-                        </p>
-                        <p className="mt-0.5 font-medium tabular-nums text-foreground">
-                          {formatMoney(s.totalDueCents - s.paidAmountCents)} due
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <PaymentStatusBadge
-                          status={s.status}
-                          totalDueCents={s.totalDueCents}
-                          paidAmountCents={s.paidAmountCents}
-                          stripeCheckoutSessionId={s.stripeCheckoutSessionId}
-                        />
-                        <Link href={`/statements/${s.id}`}>
-                          <Button variant="outline" size="sm">
-                            View
-                          </Button>
-                        </Link>
-                      </div>
-                    </ListRow>
-                  ))}
-                </ul>
+                <Link href="/billing/statements?payment=overdue">
+                  <Button variant="outline" size="sm">
+                    Review overdue
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           )}
         </section>
       )}
 
-      <section>
-        <SectionHeading>Portfolio</SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Properties"
-            value={portfolio.propertyCount}
-            icon={Building2}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Total units"
-            value={portfolio.unitCount}
-            hint={occupancyHint}
-            icon={Home}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Active tenants"
-            value={portfolio.activeTenantCount}
-            icon={Users}
-            accent="primary"
-            href="/properties"
-          />
-          <StatCard
-            label="Scheduled rent (all units)"
-            value={formatMoney(portfolio.scheduledRentCents)}
-            hint={rentHint}
-            icon={CircleDollarSign}
-            accent="primary"
-          />
-        </div>
-      </section>
+      <StatGroup
+        title="Portfolio"
+        items={[
+          {
+            label: "Properties",
+            value: portfolio.propertyCount,
+            href: "/properties",
+          },
+          {
+            label: "Total units",
+            value: portfolio.unitCount,
+            hint: occupancyHint,
+            href: "/properties",
+          },
+          {
+            label: "Active tenants",
+            value: portfolio.activeTenantCount,
+            href: "/tenants",
+          },
+          {
+            label: "Scheduled rent (all units)",
+            value: formatMoney(portfolio.scheduledRentCents),
+            hint: rentHint,
+          },
+        ]}
+      />
 
-      <section>
-        <SectionHeading>Financial overview</SectionHeading>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard
-            label="Outstanding (unpaid statements)"
-            value={formatMoney(outstandingCents)}
-            icon={Banknote}
-            accent={outstandingCents > 0 ? "danger" : "neutral"}
-            valueClassName={outstandingCents > 0 ? "text-danger" : undefined}
-            href={outstandingCents > 0 ? "/statements?payment=unpaid" : "/statements"}
-          />
-          <StatCard
-            label="Collected (lifetime)"
-            value={formatMoney(collectedCents)}
-            icon={PiggyBank}
-            accent="success"
-            valueClassName="text-success"
-            href="/statements?payment=paid"
-          />
-          <StatCard
-            label="Open maintenance"
-            value={openMaintenance}
-            icon={Wrench}
-            accent={openMaintenance > 0 ? "warning" : "neutral"}
-            href="/maintenance?status=open"
-          />
-          <StatCard
-            label="Draft statements"
-            value={paymentCounts.draft}
-            icon={FileText}
-            accent={paymentCounts.draft > 0 ? "warning" : "neutral"}
-            href={paymentCounts.draft > 0 ? "/statements?payment=draft" : "/statements"}
-          />
-        </div>
-      </section>
-
-      <OnboardingChecklist steps={onboardingSteps} />
+      {showOnboardingChecklist && <OnboardingChecklist steps={onboardingSteps} />}
 
       <section>
         <Card>
@@ -428,7 +487,7 @@ export default async function DashboardPage() {
               {PAYMENT_BREAKDOWN_ORDER.map((key) => (
                 <Link
                   key={key}
-                  href={`/statements?payment=${key}`}
+                  href={`/billing/statements?payment=${key}`}
                   className="rounded-xl border border-border bg-surface px-4 py-3 text-center shadow-[var(--shadow-sm)] transition-colors hover:border-primary/20 hover:bg-primary-muted/30"
                 >
                   <p className={cn("text-2xl font-semibold tabular-nums", PAYMENT_STATUS_ACCENTS[key])}>

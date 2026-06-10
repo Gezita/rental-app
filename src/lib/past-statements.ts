@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { PaymentMethod, StatementStatus } from "@prisma/client";
-import { generateStatementForUnit, MONTH_NAMES } from "@/lib/statements";
+import { MONTH_NAMES } from "@/lib/billing-constants";
+import { generateStatementForUnit } from "@/lib/statements";
 import { recordStatementPayment } from "@/lib/record-payment";
 
 export type InitialPaymentInput = {

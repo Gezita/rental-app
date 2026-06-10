@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -30,6 +30,7 @@ model UserSettings {
   autoSendDayOfMonth       Int     @default(1)
   leaseReminderDays        Int     @default(30)
   stripePaymentsEnabled Boolean @default(false)
+  docusignEnabled         Boolean @default(false)
   user                  User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -60,6 +61,7 @@ model Property {
   utilityBills           UtilityBill[]
   documents              Document[]
   maintenanceRecords MaintenanceRecord[]
+  inspections        Inspection[]
 }
 
 model Unit {
@@ -80,6 +82,8 @@ model Unit {
   documents          Document[]
   maintenanceRecords MaintenanceRecord[]
   utilityBillSplits  UtilityBillSplit[]
+  inspections        Inspection[]
+  leaseDraft         LeaseDraft?
 }
 
 model Tenant {
@@ -276,6 +280,9 @@ model Document {
   tags          String?
   ltbFormCode   String?
   sentToTenantAt DateTime?
+  docusignEnvelopeId String?  @unique
+  signatureStatus    DocumentSignatureStatus @default(none)
+  signedAt           DateTime?
   notes         String?
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
@@ -289,6 +296,66 @@ model Document {
   statementPdfs     Statement[]   @relation("StatementPdf")
   receiptPdfs       Receipt[]     @relation("ReceiptPdf")
   maintenanceRecord MaintenanceRecord? @relation("MaintenanceInvoice")
+  inspectionPhoto   InspectionItemPhoto? @relation("InspectionPhoto")
+}
+
+model LeaseDraft {
+  id                    String    @id @default(cuid())
+  unitId                String    @unique
+  firstName             String?
+  lastName              String?
+  email                 String?
+  phone                 String?
+  moveInDate            DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  leaseStartDate        DateTime?
+  leaseEndDate          DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model Inspection {
+  id             String           @id @default(cuid())
+  propertyId     String
+  unitId         String?
+  title          String
+  inspectionDate DateTime         @default(now())
+  status         InspectionStatus @default(in_progress)
+  overallNotes   String?
+  completedAt    DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  property Property         @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit     Unit?            @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  items    InspectionItem[]
+}
+
+model InspectionItem {
+  id           String               @id @default(cuid())
+  inspectionId String
+  label        String
+  sortOrder    Int
+  status       InspectionItemStatus @default(pending)
+  notes        String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  inspection Inspection          @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  photos     InspectionItemPhoto[]
+}
+
+model InspectionItemPhoto {
+  id               String   @id @default(cuid())
+  inspectionItemId String
+  documentId       String   @unique
+  createdAt        DateTime @default(now())
+
+  inspectionItem InspectionItem @relation(fields: [inspectionItemId], references: [id], onDelete: Cascade)
+  document       Document       @relation("InspectionPhoto", fields: [documentId], references: [id], onDelete: Cascade)
 }
 
 model MaintenanceRecord {
@@ -390,4 +457,24 @@ enum MaintenanceStatus {
 enum UtilityBillSource {
   manual
   spreadsheet
+}
+
+enum DocumentSignatureStatus {
+  none
+  pending
+  completed
+  declined
+  voided
+}
+
+enum InspectionStatus {
+  in_progress
+  completed
+}
+
+enum InspectionItemStatus {
+  pending
+  pass
+  fail
+  na
 }

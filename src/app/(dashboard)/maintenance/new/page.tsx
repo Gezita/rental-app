@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { createMaintenanceAction } from "@/app/actions/app";
+import { createMaintenanceAction } from "@/app/actions";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Label, Select, Textarea } from "@/components/ui";
 
@@ -105,7 +105,7 @@ export default async function NewMaintenancePage() {
                 <Label htmlFor="file">Invoice / Photo</Label>
                 <Input id="file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png" />
               </div>
-              <Button type="submit">Save Record</Button>
+              <Button type="submit">Save maintenance item</Button>
             </form>
           </CardContent>
         </Card>

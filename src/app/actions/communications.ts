@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { sendEmail } from "@/lib/email";
+import { sendEmail } from "@/server/emails/send";
 import { getLtbForm } from "@/lib/ltb-forms";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { requireProperty } from "@/lib/ownership";
@@ -40,26 +40,26 @@ export async function generateLtbNoticeAction(formData: FormData) {
   const user = await requireUser();
 
   const parsed = generateLtbNoticeSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/notices/wizard?error=required");
+  if (!parsed.success) redirect("/documents/notices/wizard?error=required");
 
   const { propertyId, unitId, tenantId, formCode, notes } = parsed.data;
 
   const form = resolveLtbNoticeForm(formCode);
   if (!form) {
-    redirect(`/notices/wizard?error=invalid_form&formCode=${formCode}`);
+    redirect(`/documents/notices/wizard?error=invalid_form&formCode=${formCode}`);
   }
 
   await requireProperty(user.id, propertyId);
   const unit = await requireUnit(user.id, unitId);
   if (unit.propertyId !== propertyId) {
-    redirect("/notices/wizard?error=required");
+    redirect("/documents/notices/wizard?error=required");
   }
 
   const tenant = await prisma.tenant.findFirst({
     where: { id: tenantId, unitId, isActive: true },
   });
   if (!tenant) {
-    redirect("/notices/wizard?error=tenant");
+    redirect("/documents/notices/wizard?error=tenant");
   }
 
   const fieldValues: Record<string, string> = {};
@@ -67,7 +67,7 @@ export async function generateLtbNoticeAction(formData: FormData) {
     const value = String(formData.get(field.name) || "").trim();
     if (field.required && !value) {
       redirect(
-        `/notices/wizard?error=required&formCode=${formCode}&tenantId=${tenantId}&propertyId=${propertyId}&unitId=${unitId}`
+        `/documents/notices/wizard?error=required&formCode=${formCode}&tenantId=${tenantId}&propertyId=${propertyId}&unitId=${unitId}`
       );
     }
     if (value) fieldValues[field.name] = value;
@@ -122,9 +122,9 @@ export async function generateLtbNoticeAction(formData: FormData) {
     data: { ltbFormCode: form.code },
   });
 
-  revalidatePath("/notices");
+  revalidatePath("/documents/notices");
   revalidatePath("/documents");
-  redirect(`/notices?uploaded=1&documentId=${doc.id}`);
+  redirect(`/documents/notices?uploaded=1&documentId=${doc.id}`);
 }
 
 export async function uploadLtbNoticeAction(formData: FormData) {
@@ -138,11 +138,11 @@ export async function uploadLtbNoticeAction(formData: FormData) {
   const file = formData.get("file") as File | null;
 
   if (!propertyId || !formCode || !file || file.size === 0) {
-    redirect("/notices?error=required");
+    redirect("/documents/notices?error=required");
   }
 
   if (!getLtbForm(formCode)) {
-    redirect("/notices?error=invalid_form");
+    redirect("/documents/notices?error=invalid_form");
   }
 
   await requireProperty(user.id, propertyId);
@@ -164,8 +164,8 @@ export async function uploadLtbNoticeAction(formData: FormData) {
     data: { ltbFormCode: formCode },
   });
 
-  revalidatePath("/notices");
-  redirect(`/notices?uploaded=1&documentId=${doc.id}`);
+  revalidatePath("/documents/notices");
+  redirect(`/documents/notices?uploaded=1&documentId=${doc.id}`);
 }
 
 export async function sendLtbNoticeEmailAction(formData: FormData) {
@@ -220,15 +220,15 @@ export async function sendLtbNoticeEmailAction(formData: FormData) {
     data: { sentToTenantAt: new Date() },
   });
 
-  revalidatePath("/notices");
-  redirect("/notices?sent=1");
+  revalidatePath("/documents/notices");
+  redirect("/documents/notices?sent=1");
 }
 
 export async function sendAnnouncementEmailAction(formData: FormData) {
   const user = await requireUser();
 
   const parsed = sendAnnouncementSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/notices?error=announcement_required");
+  if (!parsed.success) redirect("/documents/notices?error=announcement_required");
 
   const { subject: subjectLine, message, propertyId } = parsed.data;
   const tenantIds = formData.getAll("tenantIds").map(String).filter(Boolean);
@@ -258,7 +258,7 @@ export async function sendAnnouncementEmailAction(formData: FormData) {
 
   const recipients = tenants.filter((t) => t.email);
   if (recipients.length === 0) {
-    redirect("/notices?error=no_email");
+    redirect("/documents/notices?error=no_email");
   }
 
   const landlordName = user.settings?.landlordName || user.name || user.email;
@@ -282,8 +282,8 @@ export async function sendAnnouncementEmailAction(formData: FormData) {
     });
   }
 
-  revalidatePath("/notices");
-  redirect(`/notices?announcementSent=${recipients.length}`);
+  revalidatePath("/documents/notices");
+  redirect(`/documents/notices?announcementSent=${recipients.length}`);
 }
 
 export async function uploadMaintenanceReceiptAction(formData: FormData) {

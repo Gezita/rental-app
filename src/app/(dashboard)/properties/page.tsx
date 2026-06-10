@@ -2,9 +2,10 @@ import Link from "next/link";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { PageBackNav } from "@/components/layout/page-back-nav";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { PageTabs } from "@/components/layout/page-tabs";
+import { portfolioTabs } from "@/lib/section-tabs";
 import { Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
 
 export default async function PropertiesPage({
@@ -26,13 +27,13 @@ export default async function PropertiesPage({
 
   return (
     <div className="space-y-6">
-      <PageBackNav />
+      <PageTabs tabs={portfolioTabs} />
       <PageHeader
         title="Properties"
         description="Manage your rental properties and units"
         actions={
           <Link href="/properties/new">
-            <Button>Add Property</Button>
+            <Button>Add property</Button>
           </Link>
         }
       />

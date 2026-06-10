@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
 import { getPaymentStatus, getOutstandingCents } from "@/lib/payment-status";
-import { MONTH_NAMES } from "@/lib/statements";
+import { MONTH_NAMES } from "@/lib/billing-constants";
 import { isStripeConfigured } from "@/lib/stripe";
 import { PayWithStripeButton } from "@/components/pay-with-stripe-button";
 import { Alert, Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui";

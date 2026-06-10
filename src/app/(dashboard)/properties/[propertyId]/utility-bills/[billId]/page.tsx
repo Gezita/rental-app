@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
-import { UTILITY_TYPE_LABELS } from "@/lib/statements";
+import { UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Table, Th, Td, Tr } from "@/components/ui";
 

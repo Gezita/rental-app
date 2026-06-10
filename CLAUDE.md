@@ -130,6 +130,7 @@ Copy `.env.example` to `.env` (or run `make setup` — it does this automaticall
 
 ## Related docs
 
+- `PRODUCT_ROADMAP.md` — product strategy and phased roadmap (features, mobile, monetization, UX)
 - `LANDLORD_BILLING_APP_ARCHITECTURE_MVP.md` — product spec, data model, all business rules, implementation status
 - `STYLE_GUIDE.md` — UI tokens, component catalogue, page patterns
 - `production-plan.md` — phased plan for production hosting (database, file storage, email)

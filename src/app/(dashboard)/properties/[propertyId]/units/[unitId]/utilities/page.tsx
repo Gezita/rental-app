@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { saveUtilityRulesAction } from "@/app/actions/app";
-import { UTILITY_TYPE_LABELS } from "@/lib/statements";
+import { saveUtilityRulesAction } from "@/app/actions";
+import { UTILITY_TYPE_LABELS } from "@/lib/billing-constants";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import {
   Alert,
@@ -46,8 +46,11 @@ export default async function UtilityRulesPage({
         }}
       />
       <div>
-        <h1 className="text-2xl font-bold">Utility Rules</h1>
-        <p className="text-muted">Define how utility costs are split for this unit</p>
+        <h1 className="text-2xl font-bold">Utility split rules</h1>
+        <p className="text-muted">
+          Define what share of each utility this unit pays. Percentages for the same utility type
+          should total 100% across all units in the property.
+        </p>
       </div>
 
       {saved && <Alert>Saved utility rules.</Alert>}
@@ -96,7 +99,7 @@ export default async function UtilityRulesPage({
                 </div>
               );
             })}
-            <Button type="submit">Save Rules</Button>
+            <Button type="submit">Save split rules</Button>
           </form>
         </CardContent>
       </Card>

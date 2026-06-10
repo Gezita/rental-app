@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { cloudDataBlockedResponse } from "@/lib/cloud-guard";
+import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { readDocumentFile } from "@/lib/files";
@@ -7,6 +9,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ documentId: string }> }
 ) {
+  if (isLocalDataOnlyDeploy()) return cloudDataBlockedResponse();
+
   const userId = await getSessionUserId();
   if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

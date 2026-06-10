@@ -73,9 +73,10 @@ install_deps() {
 }
 
 setup_database() {
-  info "Setting up local database (SQLite) and demo data…"
+  info "Setting up local database (SQLite on your Mac) and demo data…"
+  npm run db:use-sqlite
   npm run db:setup
-  ok "Database ready"
+  ok "Database ready (prisma/dev.db — stays on this computer)"
 }
 
 build_app() {

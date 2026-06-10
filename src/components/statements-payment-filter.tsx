@@ -19,7 +19,7 @@ function statementsHref(payment?: string, unitId?: string) {
   if (unitId) params.set("unitId", unitId);
   if (payment && payment !== "all") params.set("payment", payment);
   const query = params.toString();
-  return query ? `/statements?${query}` : "/statements";
+  return query ? `/billing/statements?${query}` : "/billing/statements";
 }
 
 export function StatementsPaymentFilter({

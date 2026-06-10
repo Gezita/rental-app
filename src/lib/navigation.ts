@@ -2,28 +2,65 @@ export type NavItem = {
   href: string;
   label: string;
   exact?: boolean;
+  children?: NavItem[];
 };
 
 export const dashboardNavItems: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", exact: true },
-  { href: "/properties", label: "Properties" },
-  { href: "/utility-bills", label: "Utility Bills" },
-  { href: "/statements", label: "Statements" },
-  { href: "/reports/tax", label: "Tax Reports" },
-  { href: "/notices", label: "LTB Notices" },
-  { href: "/documents", label: "Documents" },
+  { href: "/dashboard", label: "Home", exact: true },
+  {
+    href: "/properties",
+    label: "Properties",
+    children: [
+      { href: "/properties", label: "All properties", exact: true },
+      { href: "/tenants", label: "Tenants" },
+      { href: "/inspections", label: "Inspections" },
+    ],
+  },
+  {
+    href: "/billing",
+    label: "Billing",
+    children: [
+      { href: "/billing", label: "Monthly workflow", exact: true },
+      { href: "/billing/statements", label: "Statements" },
+      { href: "/billing/utility-bills", label: "Utility bills" },
+      { href: "/billing/payments", label: "Payments" },
+      { href: "/billing/tax-reports", label: "Tax reports" },
+    ],
+  },
+  {
+    href: "/documents",
+    label: "Documents",
+    children: [
+      { href: "/documents", label: "All files", exact: true },
+      { href: "/documents/notices", label: "Notices" },
+    ],
+  },
   { href: "/maintenance", label: "Maintenance" },
-  { href: "/profile", label: "Profile" },
-  { href: "/settings", label: "Settings" },
+  {
+    href: "/settings",
+    label: "Settings",
+    children: [
+      { href: "/settings", label: "Account", exact: true },
+      { href: "/settings/profile", label: "Profile" },
+      { href: "/settings/integrations", label: "Integrations" },
+    ],
+  },
 ];
 
-export const mobileNavSections: { label: string; items: NavItem[] }[] = [
-  {
-    label: "Navigate",
-    items: dashboardNavItems.filter((item) => item.href !== "/profile" && item.href !== "/settings"),
-  },
-  {
-    label: "Account",
-    items: dashboardNavItems.filter((item) => item.href === "/profile" || item.href === "/settings"),
-  },
-];
+/** Flat list for consumers that need every route. */
+export function flattenNavItems(items: NavItem[] = dashboardNavItems): NavItem[] {
+  return items.flatMap((item) =>
+    item.children ? [item, ...item.children] : [item]
+  );
+}
+
+export function isNavItemActive(pathname: string, href: string, exact?: boolean) {
+  return exact
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+export function isNavGroupActive(pathname: string, item: NavItem) {
+  if (isNavItemActive(pathname, item.href, item.exact)) return true;
+  return item.children?.some((child) => isNavItemActive(pathname, child.href, child.exact));
+}

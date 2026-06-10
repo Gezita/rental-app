@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleDollarSign, Home, Shield, Wrench } from "lucide-react";
-import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions/app";
+import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -91,7 +91,7 @@ export default async function PropertyDetailPage({
         </div>
         <div className="flex gap-2">
           <Link href={`/properties/${propertyId}/utility-bills/import`}>
-            <Button variant="outline">Import amounts (.xlsx)</Button>
+            <Button variant="outline">Import bill spreadsheet</Button>
           </Link>
           <Link href={`/properties/${propertyId}/utility-bills/new`}>
             <Button variant="outline">Upload bill PDF</Button>
@@ -284,13 +284,13 @@ export default async function PropertyDetailPage({
 
       <div className="flex gap-4">
         <Link href={`/properties/${propertyId}/utility-bills/import`}>
-          <Button variant="outline">Import amounts (.xlsx)</Button>
+          <Button variant="outline">Import bill spreadsheet</Button>
         </Link>
         <Link href={`/properties/${propertyId}/utility-bills`}>
-          <Button variant="outline">Utility Bills</Button>
+          <Button variant="outline">Utility bills</Button>
         </Link>
-        <Link href={`/statements/generate?propertyId=${propertyId}`}>
-          <Button variant="outline">Generate Statements</Button>
+        <Link href={`/billing/statements/generate?propertyId=${propertyId}`}>
+          <Button variant="outline">Generate monthly statements</Button>
         </Link>
       </div>
 

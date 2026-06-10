@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { generateReceiptPdf } from "@/lib/pdf";
-import { MONTH_NAMES } from "@/lib/statements";
-import { sendEmail } from "@/lib/email";
+import { MONTH_NAMES } from "@/lib/billing-constants";
+import { sendEmail } from "@/server/emails/send";
 import {
   buildPartialPaymentEmailContent,
   buildReceiptEmailContent,
