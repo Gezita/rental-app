@@ -36,27 +36,22 @@ docker exec -it rental-app-db-1 psql -U rental -d rental_app
 
 ---
 
-### 1b — Production PostgreSQL via Neon ⏳ Next
+### 1b — Production PostgreSQL via Neon 🔄 In Progress
 
 Neon is a serverless Postgres provider with a free tier and one-click Vercel integration.
 
-**Steps:**
+**Done (June 2026):**
 
-1. **Create a Neon account** at [neon.tech](https://neon.tech)
-2. **Create a new project** — choose a region close to your users (e.g. US East)
-3. **Copy the connection string** — it looks like:
-   ```
-   postgresql://user:password@ep-xxxx.us-east-2.aws.neon.tech/neondb?sslmode=require
-   ```
-4. **Set it as `DATABASE_URL`** in your hosting platform's environment variables (Vercel, Railway, etc.)
-5. **Run migrations on Neon** — either via the Prisma CLI pointed at Neon, or let the deploy pipeline handle it:
-   ```bash
-   DATABASE_URL="<neon-connection-string>" npx prisma db push
-   ```
-6. **Seed if needed** (optional — production likely won't need demo data):
-   ```bash
-   DATABASE_URL="<neon-connection-string>" npx prisma db seed
-   ```
+- ✅ Neon project created (US East, Postgres 16)
+- ✅ Schema pushed: `DATABASE_URL="<neon>" npx prisma db push`
+- ✅ Legacy data imported from `prisma/dev.db` via `npm run db:import-sqlite` (198 rows, all table counts verified)
+
+**Remaining:**
+
+1. **Set `DATABASE_URL` in Vercel** (Production scope) — use the **pooled** connection string (host contains `-pooler`); serverless functions need pooling
+2. **Set the other production env vars** — `SESSION_SECRET`, `NEXT_PUBLIC_APP_URL`, `CRON_SECRET`
+3. **Rotate the Neon password** (Neon dashboard → Reset password) and update it in Vercel
+4. **Deploy** — `vercel.json` runs `prisma db push` + seed on each build; the seed upserts the demo account and won't overwrite imported data
 
 **Important:** Never commit the Neon connection string to git. Always set it as an environment variable on the hosting platform.
 
