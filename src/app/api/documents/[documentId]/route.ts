@@ -3,7 +3,7 @@ import { cloudDataBlockedResponse } from "@/lib/cloud-guard";
 import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { getSessionUserId } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { readDocumentFile } from "@/lib/files";
+import { getDocumentPresignedUrl, readDocumentFile } from "@/lib/files";
 
 export async function GET(
   _request: Request,
@@ -27,8 +27,13 @@ export async function GET(
   }
 
   try {
+    const presignedUrl = await getDocumentPresignedUrl(document.filePath);
+    if (presignedUrl) {
+      return NextResponse.redirect(presignedUrl);
+    }
+
     const buffer = await readDocumentFile(document.filePath);
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": document.fileMimeType,
         "Content-Disposition": `inline; filename="${document.fileName}"`,

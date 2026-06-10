@@ -133,17 +133,21 @@ export async function recordStatementPayment(params: {
           landlordEmail: user.email,
         });
 
-    await sendEmail({
-      to: statement.tenant.email,
-      subject: emailContent.subject,
-      body: emailContent.text,
-      html: emailContent.html,
-      attachmentName: doc.fileName,
-    });
-    await prisma.receipt.update({
-      where: { id: receipt.id },
-      data: { emailSentAt: new Date() },
-    });
+    try {
+      await sendEmail({
+        to: statement.tenant.email,
+        subject: emailContent.subject,
+        body: emailContent.text,
+        html: emailContent.html,
+        attachmentName: doc.fileName,
+      });
+      await prisma.receipt.update({
+        where: { id: receipt.id },
+        data: { emailSentAt: new Date() },
+      });
+    } catch (e) {
+      console.error("[email] failed to send receipt:", e);
+    }
   }
 
   return { payment, receipt, isFullyPaid, remainingBalanceCents: remainingBalance };

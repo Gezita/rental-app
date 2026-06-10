@@ -1,5 +1,6 @@
 import {
   deleteDocumentFile,
+  getDocumentPresignedUrl,
   readDocumentFile,
   saveDocumentBuffer,
   validateMagicBytes,
@@ -7,7 +8,7 @@ import {
 } from "./storage";
 import type { DocumentCategory } from "@prisma/client";
 
-export { deleteDocumentFile, readDocumentFile };
+export { deleteDocumentFile, getDocumentPresignedUrl, readDocumentFile };
 
 export async function saveUploadedFile(
   file: File,

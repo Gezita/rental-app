@@ -91,13 +91,17 @@ export async function sendStatementById(statementId: string, userId: string) {
     notes: settings?.statementNotes ?? undefined,
   });
 
-  await sendEmail({
-    to: statement.tenant.email,
-    subject: emailContent.subject,
-    body: emailContent.text,
-    html: emailContent.html,
-    attachmentName: doc.fileName,
-  });
+  try {
+    await sendEmail({
+      to: statement.tenant.email,
+      subject: emailContent.subject,
+      body: emailContent.text,
+      html: emailContent.html,
+      attachmentName: doc.fileName,
+    });
+  } catch (e) {
+    console.error("[email] failed to send statement:", e);
+  }
 
   await prisma.statement.update({
     where: { id: statementId },
