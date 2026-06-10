@@ -227,6 +227,10 @@ function PaymentStatusFields({ idPrefix }: { idPrefix: string }) {
         <Input
           id={`${idPrefix}-partialAmount`}
           name="partialAmount"
+          type="number"
+          step="0.01"
+          min="0"
+          inputMode="decimal"
           placeholder="e.g. 500.00"
         />
       </div>
