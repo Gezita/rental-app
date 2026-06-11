@@ -63,7 +63,6 @@ export default async function SignInPage({
                   name="email"
                   type="email"
                   required
-                  defaultValue="demo@landlord.app"
                 />
               </div>
               <div className="space-y-2">
@@ -73,7 +72,6 @@ export default async function SignInPage({
                   name="password"
                   type="password"
                   required
-                  defaultValue="demo1234"
                 />
               </div>
               <SubmitButton className="w-full" pendingLabel="Signing in…">
