@@ -6,4 +6,4 @@ cmds = [
 ]
 
 [start]
-cmd = "npm start"
+cmd = "next start -p ${PORT:-3000}"
