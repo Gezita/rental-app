@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+"use client";
+
+import { useRouter } from "next/navigation";
 
 export type StatementUnitFilterOption = {
   unitId: string;
@@ -22,63 +23,28 @@ function statementsHref(unitId?: string, payment?: string) {
   return query ? `/billing/statements?${query}` : "/billing/statements";
 }
 
-export function StatementsUnitFilter({
-  units,
-  activeUnitId,
-  activePayment,
-  totalCount,
-}: StatementsUnitFilterProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="mr-1 text-sm font-medium text-muted">Unit:</span>
-      <Link
-        href={statementsHref(undefined, activePayment)}
-        className={cn(
-          "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-          !activeUnitId
-            ? "border-primary/30 bg-primary-muted text-primary-hover"
-            : "border-border bg-surface text-muted-foreground hover:border-border hover:bg-surface-muted hover:text-foreground"
-        )}
-        aria-current={!activeUnitId ? "page" : undefined}
-      >
-        All units
-        <span
-          className={cn(
-            "rounded-full px-2 py-0.5 text-xs tabular-nums",
-            !activeUnitId ? "bg-primary/15 text-primary-hover" : "bg-surface-muted text-muted"
-          )}
-        >
-          {totalCount}
-        </span>
-      </Link>
-      {units.map((unit) => {
-        const isActive = activeUnitId === unit.unitId;
-        const href = statementsHref(unit.unitId, activePayment);
+export function StatementsUnitFilter({ units, activeUnitId, activePayment, totalCount }: StatementsUnitFilterProps) {
+  const router = useRouter();
+  const active = activeUnitId || "all";
 
-        return (
-          <Link
-            key={unit.unitId}
-            href={href}
-            className={cn(
-              "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-              isActive
-                ? "border-primary/30 bg-primary-muted text-primary-hover"
-                : "border-border bg-surface text-muted-foreground hover:border-border hover:bg-surface-muted hover:text-foreground"
-            )}
-            aria-current={isActive ? "page" : undefined}
-          >
-            {unit.label}
-            <span
-              className={cn(
-                "rounded-full px-2 py-0.5 text-xs tabular-nums",
-                isActive ? "bg-primary/15 text-primary-hover" : "bg-surface-muted text-muted"
-              )}
-            >
-              {unit.count}
-            </span>
-          </Link>
-        );
-      })}
+  return (
+    <div className="flex items-center gap-2">
+      <label className="shrink-0 text-sm font-medium text-muted">Unit</label>
+      <select
+        value={active}
+        onChange={(e) => {
+          const val = e.target.value;
+          router.push(statementsHref(val === "all" ? undefined : val, activePayment));
+        }}
+        className="h-9 min-w-0 flex-1 cursor-pointer rounded-xl border border-border bg-surface px-3 text-sm text-foreground shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 sm:flex-none sm:w-56"
+      >
+        <option value="all">All units ({totalCount})</option>
+        {units.map((unit) => (
+          <option key={unit.unitId} value={unit.unitId}>
+            {unit.label} ({unit.count})
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

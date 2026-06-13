@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleDollarSign, FileText, FolderOpen, Home, Shield, Wrench } from "lucide-react";
+import { ChevronRight, CircleDollarSign, FileText, FolderOpen, Home, Shield, Wrench } from "lucide-react";
 import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -112,15 +112,15 @@ export default async function PropertyDetailPage({
             {property.province ? `, ${property.province}` : ""}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link href={`/properties/${propertyId}/utility-bills/import`}>
-            <Button variant="outline">Import bill spreadsheet</Button>
+            <Button variant="outline" size="sm">Import bill spreadsheet</Button>
           </Link>
           <Link href={`/properties/${propertyId}/utility-bills/new`}>
-            <Button variant="outline">Upload bill PDF</Button>
+            <Button variant="outline" size="sm">Upload bill PDF</Button>
           </Link>
           <Link href={`/properties/${propertyId}/units/new`}>
-            <Button>Add Unit</Button>
+            <Button size="sm">Add Unit</Button>
           </Link>
         </div>
       </div>
@@ -271,8 +271,8 @@ export default async function PropertyDetailPage({
                 <tr>
                   <Th>Unit</Th>
                   <Th>Tenant</Th>
-                  <Th>Rent</Th>
-                  <Th>Due Day</Th>
+                  <Th className="hidden sm:table-cell">Rent</Th>
+                  <Th className="hidden sm:table-cell">Due Day</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -281,18 +281,21 @@ export default async function PropertyDetailPage({
                   const tenant = unit.tenants[0];
                   return (
                     <Tr key={unit.id}>
-                      <Td className="font-medium">{unit.name}</Td>
+                      <Td className="font-medium">
+                        <div>{unit.name}</div>
+                        <div className="mt-0.5 text-xs text-muted sm:hidden">{formatMoney(unit.rentAmountCents)}</div>
+                      </Td>
                       <Td>
                         {tenant ? `${tenant.firstName} ${tenant.lastName}` : (
                           <Badge variant="warning">No tenant</Badge>
                         )}
                       </Td>
-                      <Td>{formatMoney(unit.rentAmountCents)}</Td>
-                      <Td>{unit.rentDueDay}</Td>
-                      <Td>
-                        <Link href={`/properties/${propertyId}/units/${unit.id}`}>
-                          <Button variant="outline" size="sm">
-                            View
+                      <Td className="hidden sm:table-cell">{formatMoney(unit.rentAmountCents)}</Td>
+                      <Td className="hidden sm:table-cell">{unit.rentDueDay}</Td>
+                      <Td className="w-10 pr-3">
+                        <Link href={`/properties/${propertyId}/units/${unit.id}`} aria-label={`View unit ${unit.name}`}>
+                          <Button variant="ghost" size="sm" className="px-2">
+                            <ChevronRight className="h-4 w-4" />
                           </Button>
                         </Link>
                       </Td>
@@ -385,15 +388,15 @@ export default async function PropertyDetailPage({
         </CardContent>
       </Card>
 
-      <div className="flex gap-4">
+      <div className="flex flex-wrap gap-2">
         <Link href={`/properties/${propertyId}/utility-bills/import`}>
-          <Button variant="outline">Import bill spreadsheet</Button>
+          <Button variant="outline" size="sm">Import bill spreadsheet</Button>
         </Link>
         <Link href={`/properties/${propertyId}/utility-bills`}>
-          <Button variant="outline">Utility bills</Button>
+          <Button variant="outline" size="sm">Utility bills</Button>
         </Link>
         <Link href={`/billing/statements/generate?propertyId=${propertyId}`}>
-          <Button variant="outline">Generate monthly statements</Button>
+          <Button variant="outline" size="sm">Generate monthly statements</Button>
         </Link>
       </div>
 

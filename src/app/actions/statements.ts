@@ -196,6 +196,9 @@ export async function generateStatementsAction(formData: FormData) {
   const unitIds = formData.getAll("unitIds").map(String).filter(Boolean);
   const generateAll = propertyId === "all";
 
+  let successUrl: string | undefined;
+  let errorMessage: string | undefined;
+
   try {
     const {
       prepareUtilityBillsFromForm,
@@ -240,21 +243,22 @@ export async function generateStatementsAction(formData: FormData) {
     }
 
     if (statements.length === 0) {
-      redirect(
-        "/billing/statements/generate?error=No%20statements%20created.%20Select%20units%20with%20active%20tenants."
-      );
+      errorMessage = "No statements created. Select units with active tenants.";
+    } else {
+      const unitNames = statements.map((statement) => statement.unit.name).join(", ");
+      revalidatePath("/billing/statements");
+      revalidatePath("/billing/statements/generate");
+      successUrl = `/billing/statements?generated=1&units=${encodeURIComponent(unitNames)}`;
     }
-
-    const unitNames = statements.map((statement) => statement.unit.name).join(", ");
-
-    revalidatePath("/billing/statements");
-    revalidatePath("/billing/statements/generate");
-    redirect(`/billing/statements?generated=1&units=${encodeURIComponent(unitNames)}`);
   } catch (error) {
-    const message = encodeURIComponent(
-      error instanceof Error ? error.message : "Could not generate statements"
-    );
-    redirect(`/billing/statements/generate?error=${message}`);
+    errorMessage = error instanceof Error ? error.message : "Could not generate statements";
+  }
+
+  if (errorMessage) {
+    redirect(`/billing/statements/generate?error=${encodeURIComponent(errorMessage)}`);
+  }
+  if (successUrl) {
+    redirect(successUrl);
   }
 }
 

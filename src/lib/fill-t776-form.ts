@@ -103,7 +103,7 @@ export async function fillT776FormPdf(report: T776Report, userId: string): Promi
   };
 
   const fields = buildFieldValues(report, ctx);
-  const tempDir = path.join(tmpdir(), "zigglo-t776");
+  const tempDir = path.join(tmpdir(), "Lessora-t776");
   await mkdir(tempDir, { recursive: true });
   const token = randomBytes(8).toString("hex");
   const outputPath = path.join(tempDir, `t776-${token}.pdf`);

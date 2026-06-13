@@ -417,7 +417,7 @@ export default async function UnitDetailPage({
             )}
             <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
               <Button variant="ghost" size="sm">
-                Zigglo summary lease
+                Lessora summary lease
               </Button>
             </Link>
           </div>

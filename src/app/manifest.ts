@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "zigglo",
-    short_name: "zigglo",
+    name: "Lessora",
+    short_name: "Lessora",
     description: "Landlord billing and document management",
     start_url: "/dashboard",
     scope: "/",
@@ -14,13 +14,13 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["business", "finance", "productivity"],
     icons: [
       {
-        src: "/brand/zigglo-icon.png",
+        src: "/brand/lessora-icon.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/brand/zigglo-icon.png",
+        src: "/brand/lessora-icon.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

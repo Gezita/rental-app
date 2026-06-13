@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatMoney } from "@/lib/money";
@@ -52,9 +53,9 @@ export default async function PropertiesPage({
               <thead>
                 <tr>
                   <Th>Name</Th>
-                  <Th>Address</Th>
+                  <Th className="hidden sm:table-cell">Address</Th>
                   <Th>Units</Th>
-                  <Th>Scheduled rent</Th>
+                  <Th className="hidden sm:table-cell">Scheduled rent</Th>
                   <Th></Th>
                 </tr>
               </thead>
@@ -63,16 +64,21 @@ export default async function PropertiesPage({
                   const monthlyRent = property.units.reduce((s, u) => s + u.rentAmountCents, 0);
                   return (
                     <Tr key={property.id}>
-                      <Td className="font-medium">{property.name}</Td>
-                      <Td>
+                      <Td className="font-medium">
+                        <div>{property.name}</div>
+                        <div className="mt-0.5 text-xs text-muted sm:hidden">
+                          {property.addressLine1}, {property.city}
+                        </div>
+                      </Td>
+                      <Td className="hidden sm:table-cell">
                         {property.addressLine1}, {property.city}
                       </Td>
                       <Td>{property.units.length}</Td>
-                      <Td>{formatMoney(monthlyRent)}</Td>
-                      <Td>
-                        <Link href={`/properties/${property.id}`}>
-                          <Button variant="outline" size="sm">
-                            Open
+                      <Td className="hidden sm:table-cell">{formatMoney(monthlyRent)}</Td>
+                      <Td className="w-10 pr-3">
+                        <Link href={`/properties/${property.id}`} aria-label={`Open ${property.name}`}>
+                          <Button variant="ghost" size="sm" className="px-2">
+                            <ChevronRight className="h-4 w-4" />
                           </Button>
                         </Link>
                       </Td>

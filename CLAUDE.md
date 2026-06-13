@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## App
+
+**Lessora** — a landlord billing and property management app for small Ontario rental portfolios.
+
 ## Local development
 
 **Requirements:** Node.js 20+ (see `.nvmrc`) and Docker Desktop.
@@ -41,7 +45,7 @@ There are no automated tests beyond ESLint and the build type-check. The spreads
 
 ### Request flow
 
-All mutations use **Server Actions** in `src/app/actions/`; there are no REST endpoints except for Stripe webhooks, the cron trigger, document downloads, and session management (`src/app/api/`). Pages are Server Components by default — add `"use client"` only for forms, flash-alert dismiss, or submit pending state.
+All mutations use **Server Actions** in `src/app/actions/`; there are no REST endpoints except for Stripe webhooks, the cron trigger, DocuSign callbacks, document downloads, and session management (`src/app/api/`). Pages are Server Components by default — add `"use client"` only for forms, flash-alert dismiss, or submit pending state.
 
 ### Authorization pattern
 
@@ -63,19 +67,50 @@ All monetary values are stored as **integer cents** in the database. Use `format
 | File | Responsibility |
 |------|----------------|
 | `src/lib/statements.ts` | Statement generation, utility split calculation, prior-balance roll-forward, refresh |
+| `src/lib/statement-extras.ts` | Extra cost line items (one-off charges) on statements |
+| `src/lib/statement-preview.ts` | Pre-send statement preview data |
+| `src/lib/statement-send.ts` | Statement sending (email + PDF attach) |
+| `src/lib/statement-stats.ts` | Aggregate statement statistics for dashboard |
 | `src/lib/parse-bills-xlsx.ts` | Spreadsheet bill import (server-only — never import in client components) |
 | `src/lib/record-payment.ts` | Payment recording, receipt generation, Stripe webhook handling |
 | `src/lib/auto-billing.ts` | Scheduled auto-generate + email statements |
+| `src/lib/billing-workflow.ts` | Monthly billing workflow step logic |
 | `src/lib/overdue.ts` | Syncs overdue status (runs on dashboard/statements load) |
 | `src/lib/payment-status.ts` | Derives UI payment status — use `PaymentStatusBadge` rather than replicating logic |
 | `src/lib/billing-constants.ts` | Canonical `MONTH_NAMES`, utility labels, year options — do not duplicate |
+| `src/lib/utility-profiles.ts` | Reusable utility split rule profiles (save/apply to units) |
+| `src/lib/utility-split-preview.ts` | Preview utility splits before saving |
+| `src/lib/utility-split-validation.ts` | Validation for utility split inputs |
+| `src/lib/utility-bill-month.ts` | Utility bill month helpers |
+| `src/lib/t776-report.ts` | T776 rental income tax report data aggregation |
+| `src/lib/export-t776.ts` | T776 PDF form-fill export |
+| `src/lib/fill-t776-form.ts` | Low-level T776 PDF field filling |
 | `src/lib/validation.ts` | All shared input validation |
 | `src/lib/ownership.ts` | Authorization guards (`requireProperty`, `requireUnit`, etc.) |
 | `src/lib/session-token.ts` | HMAC session signing (requires `SESSION_SECRET` in production) |
+| `src/lib/rate-limit.ts` | Login attempt rate limiting (DB-backed) |
 | `src/lib/pdf.ts` | PDF generation for statements, leases, and receipts (server-only) |
+| `src/lib/storage.ts` | Unified file storage — local `./uploads` in dev, Cloudflare R2 in production |
+| `src/lib/r2.ts` | Cloudflare R2 S3-compatible client (used by `storage.ts`) |
+| `src/lib/files.ts` | Thin wrapper re-exporting `storage.ts` helpers — prefer importing from `storage.ts` directly |
+| `src/lib/email-templates.ts` | Reusable HTML email layout builder (Lessora-branded) |
+| `src/lib/tenant-communications.ts` | Statement, receipt, and announcement email content builders |
 | `src/lib/ltb-forms.ts` | LTB form catalogue (codes, names, download URLs) |
 | `src/lib/ltb-notice-wizard.ts` | Multi-step LTB notice wizard — field definitions and form-filling logic |
 | `src/lib/standard-lease-2229e.ts` | Fills Ontario Form 2229e standard lease PDF from unit/lease data |
+| `src/lib/lease-wizard.ts` | Multi-step lease creation wizard logic |
+| `src/lib/docusign.ts` | DocuSign envelope creation for lease e-signing |
+| `src/lib/inspection-checklist.ts` | Default inspection checklist items and status labels |
+| `src/lib/lease-reminders.ts` | Leases ending soon — data fetch for dashboard alerts |
+| `src/lib/dashboard-hero-stats.ts` | Dashboard hero stat aggregation |
+| `src/lib/portfolio-stats.ts` | Portfolio-level statistics |
+| `src/lib/past-statements.ts` | Lookup of past statement records |
+| `src/lib/navigation.ts` | `dashboardNavItems` — single source of truth for nav structure |
+| `src/lib/section-tabs.ts` | Tab definitions for tabbed sections (billing, documents, settings) |
+| `src/lib/document-constants.ts` | Document category labels and constants |
+| `src/lib/deploy-config.ts` | Deploy mode helpers (`isLocalDataOnlyDeploy`) |
+| `src/lib/cloud-guard.ts` | Blocks data mutations on the hosted landing deploy |
+| `src/lib/search.ts` (actions) | Global search across properties, units, tenants |
 
 ### Heavy dependencies
 
@@ -86,6 +121,18 @@ All monetary values are stored as **integer cents** in the database. Use `format
 `draft` → `sent` → `partial` | `paid` | `overdue` | `cancelled`
 
 Prior-balance rolls forward from `sent`, `overdue`, or `partial` — never from `draft` (tenant was never billed).
+
+### File storage
+
+`src/lib/storage.ts` is the unified entry point. In dev it writes to `./uploads/{userId}/`. In production (when `R2_*` env vars are set) it uses Cloudflare R2 instead. Never access the filesystem directly for user files — always go through `storage.ts`.
+
+### Email
+
+Email is sent via **Resend** when `RESEND_API_KEY` is set; falls back to `console.log` in dev. Templates live in `src/lib/email-templates.ts` (layout builder) and content builders in `src/lib/tenant-communications.ts`.
+
+### Hosted landing deploy
+
+When deployed to Vercel without `ALLOW_CLOUD_DATA=1`, `isLocalDataOnlyDeploy()` returns `true` and `cloud-guard.ts` blocks all data mutations, redirecting to `/get-started`. This is the public marketing/onboarding page — no user data is stored there.
 
 ### Database schema notes
 
@@ -127,6 +174,18 @@ Copy `.env.example` to `.env` (or run `make setup` — it does this automaticall
 | `STRIPE_SECRET_KEY` | optional | Enable Stripe payments in Settings after adding |
 | `STRIPE_WEBHOOK_SECRET` | optional | Required if using Stripe |
 | `CRON_SECRET` | optional | Bearer token for `/api/cron/auto-billing` |
+| `RESEND_API_KEY` | optional | Enable email sending in production (console.log fallback in dev) |
+| `RESEND_FROM_EMAIL` | optional | From address for outbound emails |
+| `R2_ACCOUNT_ID` | optional | Cloudflare R2 — falls back to local `./uploads` if unset |
+| `R2_ACCESS_KEY_ID` | optional | Cloudflare R2 |
+| `R2_SECRET_ACCESS_KEY` | optional | Cloudflare R2 |
+| `R2_BUCKET_NAME` | optional | Cloudflare R2 |
+| `DOCUSIGN_INTEGRATION_KEY` | optional | DocuSign e-signing — configure under Integrations |
+| `DOCUSIGN_ACCOUNT_ID` | optional | DocuSign |
+| `DOCUSIGN_USER_ID` | optional | DocuSign |
+| `DOCUSIGN_PRIVATE_KEY` | optional | DocuSign RSA private key |
+| `LOCAL_DATA_ONLY` | unset locally | Set to `1` to simulate the hosted landing deploy |
+| `ALLOW_CLOUD_DATA` | unset locally | Set to `1` on Vercel to opt into cloud persistence |
 
 ## Related docs
 

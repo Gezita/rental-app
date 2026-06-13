@@ -121,7 +121,7 @@ export default async function LeaseWizardPage({
 
           <Alert variant="info">
             For new Ontario tenancies, landlords must generally use the Ontario Standard Lease
-            (Form 2229E). This wizard produces a Zigglo summary agreement with your billing rules
+            (Form 2229E). This wizard produces a Lessora summary agreement with your billing rules
             embedded — use alongside or after the official form as your record.
           </Alert>
 

@@ -161,21 +161,23 @@ export default async function StatementsPage({
       )}
 
       <Card>
-        <CardHeader className="space-y-4">
+        <CardHeader className="space-y-3">
           <CardTitle>
             {activeUnit
               ? `${activeUnit.property.name} — ${activeUnit.name}`
               : "All statements"}
           </CardTitle>
-          <StatementsPaymentFilter activePayment={paymentFilter} activeUnitId={unitId} />
-          {unitFilterOptions.length > 1 && (
-            <StatementsUnitFilter
-              units={unitFilterOptions}
-              activeUnitId={unitId}
-              activePayment={paymentFilter}
-              totalCount={totalStatementCount}
-            />
-          )}
+          <div className="flex flex-wrap gap-3">
+            <StatementsPaymentFilter activePayment={paymentFilter} activeUnitId={unitId} />
+            {unitFilterOptions.length > 1 && (
+              <StatementsUnitFilter
+                units={unitFilterOptions}
+                activeUnitId={unitId}
+                activePayment={paymentFilter}
+                totalCount={totalStatementCount}
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {totalStatementCount === 0 ? (

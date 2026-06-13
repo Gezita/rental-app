@@ -14,6 +14,7 @@ import {
   Input,
   Label,
 } from "@/components/ui";
+import { PasswordInput } from "@/components/password-input";
 
 export default async function SignInPage({
   searchParams,
@@ -67,10 +68,9 @@ export default async function SignInPage({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
+                <PasswordInput
                   id="password"
                   name="password"
-                  type="password"
                   required
                 />
               </div>

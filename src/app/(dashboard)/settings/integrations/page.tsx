@@ -137,7 +137,7 @@ export default async function IntegrationsPage({
         <Card>
           <CardHeader>
             <CardTitle>Coming soon</CardTitle>
-            <CardDescription>Additional platform sync options planned for Zigglo.</CardDescription>
+            <CardDescription>Additional platform sync options planned for Lessora.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm text-muted">

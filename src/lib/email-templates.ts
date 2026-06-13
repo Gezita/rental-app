@@ -24,7 +24,7 @@ export function renderEmailLayout(params: EmailLayoutParams): string {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e8e6e1;">
           <tr>
             <td style="background:linear-gradient(135deg,#1e2328 0%,#3d454d 100%);padding:24px 28px;">
-              <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#c46b41;">zigglo</p>
+              <p style="margin:0;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:#c46b41;">Lessora</p>
               <h1 style="margin:8px 0 0;font-size:22px;line-height:1.3;color:#ffffff;">${escapeHtml(params.title)}</h1>
             </td>
           </tr>

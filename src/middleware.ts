@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { shouldRedirectToCanonicalHost } from "@/lib/app-url";
 import { isLocalDataOnlyDeploy, isPublicLandingPath } from "@/lib/deploy-config";
 import { parseSessionToken } from "@/lib/session-token";
 
@@ -41,13 +42,19 @@ function applySecurityHeaders(response: NextResponse) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  const canonical = shouldRedirectToCanonicalHost(request.headers.get("host"));
+  if (canonical) {
+    const destination = new URL(`${pathname}${request.nextUrl.search}`, canonical);
+    return applySecurityHeaders(NextResponse.redirect(destination, 308));
+  }
+
   if (isLocalDataOnlyDeploy()) {
     if (pathname.startsWith("/api/")) {
       return applySecurityHeaders(
         NextResponse.json(
           {
             error:
-              "This hosted page does not store data. Install zigglo on your computer — see /get-started.",
+              "This hosted page does not store data. Install Lessora on your computer — see /get-started.",
           },
           { status: 403 }
         )

@@ -1,5 +1,6 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { PAYMENT_FILTER_CHIP_LABELS, type PaymentStatusKey } from "@/lib/payment-status";
 
 const PAYMENT_FILTERS: { key: PaymentStatusKey | "all"; label: string }[] = [
@@ -22,35 +23,22 @@ function statementsHref(payment?: string, unitId?: string) {
   return query ? `/billing/statements?${query}` : "/billing/statements";
 }
 
-export function StatementsPaymentFilter({
-  activePayment,
-  activeUnitId,
-}: StatementsPaymentFilterProps) {
+export function StatementsPaymentFilter({ activePayment, activeUnitId }: StatementsPaymentFilterProps) {
+  const router = useRouter();
   const active = activePayment || "all";
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="mr-1 text-sm font-medium text-muted">Status:</span>
-      {PAYMENT_FILTERS.map((filter) => {
-        const isActive = active === filter.key;
-        const href = statementsHref(filter.key === "all" ? undefined : filter.key, activeUnitId);
-
-        return (
-          <Link
-            key={filter.key}
-            href={href}
-            className={cn(
-              "inline-flex rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-              isActive
-                ? "border-primary/30 bg-primary-muted text-primary-hover"
-                : "border-border bg-surface text-muted-foreground hover:bg-surface-muted hover:text-foreground"
-            )}
-            aria-current={isActive ? "page" : undefined}
-          >
-            {filter.label}
-          </Link>
-        );
-      })}
+    <div className="flex items-center gap-2">
+      <label className="shrink-0 text-sm font-medium text-muted">Status</label>
+      <select
+        value={active}
+        onChange={(e) => router.push(statementsHref(e.target.value, activeUnitId))}
+        className="h-9 min-w-0 flex-1 cursor-pointer rounded-xl border border-border bg-surface px-3 text-sm text-foreground shadow-[var(--shadow-sm)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 sm:flex-none sm:w-44"
+      >
+        {PAYMENT_FILTERS.map((f) => (
+          <option key={f.key} value={f.key}>{f.label}</option>
+        ))}
+      </select>
     </div>
   );
 }

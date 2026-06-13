@@ -124,7 +124,7 @@ export async function generateLtbNoticeAction(formData: FormData) {
 
   revalidatePath("/documents/notices");
   revalidatePath("/documents");
-  redirect(`/documents/notices?uploaded=1&documentId=${doc.id}`);
+  redirect(`/documents/notices/wizard/complete?documentId=${doc.id}`);
 }
 
 export async function uploadLtbNoticeAction(formData: FormData) {

@@ -60,7 +60,7 @@ export function buildStatementEmailContent(params: {
     landlordName: params.landlordName,
     landlordEmail: params.landlordEmail,
     bodyHtml,
-    footerNote: "This message was sent from your landlord's zigglo account.",
+    footerNote: "This message was sent from your landlord's Lessora account.",
   });
 
   const text = [

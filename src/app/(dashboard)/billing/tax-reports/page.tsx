@@ -92,7 +92,7 @@ export default async function TaxReportsPage({
       )}
 
       <Alert variant="info">
-        Income is based on payments recorded in Zigglo during {selectedYear}. Expenses use
+        Income is based on payments recorded in Lessora during {selectedYear}. Expenses use
         maintenance records, utility bills (net of tenant recoveries on statements), and annual
         amounts you enter per property. Verify with your accountant before filing.
       </Alert>

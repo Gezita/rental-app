@@ -27,7 +27,7 @@ export default async function UtilityBillsHubPage() {
     <div className="space-y-6">
       <PageHeader
         title="Utility bills"
-        description="Upload monthly gas, water, and electricity bills so Zigglo can split costs by unit."
+        description="Upload monthly gas, water, and electricity bills so Lessora can split costs by unit."
       />
 
       {properties.length === 0 ? (

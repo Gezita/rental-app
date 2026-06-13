@@ -28,13 +28,13 @@ export default async function GetStartedPage({
           <CardHeader>
             <CardTitle>Install on your computer</CardTitle>
             <CardDescription>
-              zigglo keeps your rental data on your Mac — not on this website.
+              Lessora keeps your rental data on your Mac — not on this website.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {params.error === "cloud-data" && (
               <FlashAlert variant="error" clearParams={["error"]}>
-                Sign-in and account data are only available in the local app. Install zigglo
+                Sign-in and account data are only available in the local app. Install Lessora
                 below to get started.
               </FlashAlert>
             )}
@@ -45,7 +45,7 @@ export default async function GetStartedPage({
                 Finder.
               </li>
               <li>
-                Launch <strong>zigglo</strong> from your Desktop, or run{" "}
+                Launch <strong>Lessora</strong> from your Desktop, or run{" "}
                 <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">npm run dev</code>{" "}
                 in the project folder.
               </li>

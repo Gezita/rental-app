@@ -186,7 +186,7 @@ export async function generateLeasePdf(
       : "None specified";
 
   w.draw("RESIDENTIAL TENANCY AGREEMENT", 16, true);
-  w.draw("Ontario — prepared with Zigglo", 9);
+  w.draw("Ontario — prepared with Lessora", 9);
   w.draw(
     "This agreement is for landlord records. For new tenancies, use the Ontario Standard Lease (Form 2229E) where required by the RTA.",
     9
@@ -292,7 +292,7 @@ export async function generateLtbNoticePdf(
 
   w.draw(`FORM ${data.formCode}`, 14, true);
   w.draw(data.formName, 12, true);
-  w.draw("Landlord and Tenant Board — Ontario (Draft prepared with Zigglo)", 9);
+  w.draw("Landlord and Tenant Board — Ontario (Draft prepared with Lessora)", 9);
   w.draw(
     "Review against the official LTB PDF before serving. Official blank forms: tribunalsontario.ca/ltb/forms/",
     9
@@ -540,7 +540,7 @@ export async function generateOnboardingPdf(data: OnboardingPdfData) {
   });
 
   w.draw("WELCOME TO YOUR NEW HOME", 16, true);
-  w.draw("Tenant onboarding package — prepared with Zigglo", 9);
+  w.draw("Tenant onboarding package — prepared with Lessora", 9);
   w.y -= 8;
 
   w.draw(`Dear ${data.tenantName},`, 11, true);

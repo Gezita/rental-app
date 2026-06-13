@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { DM_Sans } from "next/font/google";
+import { DM_Sans, Outfit } from "next/font/google";
 import { PwaRegister } from "@/components/pwa-register";
 import "./globals.css";
 
@@ -9,17 +9,24 @@ const dmSans = DM_Sans({
   display: "swap",
 });
 
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-outfit",
+  display: "swap",
+  weight: ["600", "700"],
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "zigglo",
-    template: "%s | zigglo",
+    default: "Lessora",
+    template: "%s | Lessora",
   },
   description: "Landlord billing and document management",
-  applicationName: "zigglo",
+  applicationName: "Lessora",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "zigglo",
+    title: "Lessora",
   },
   formatDetection: {
     telephone: false,
@@ -46,7 +53,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html lang="en" className={`${dmSans.variable} ${outfit.variable}`}>
       <body className="min-h-screen antialiased">
         {children}
         <PwaRegister />

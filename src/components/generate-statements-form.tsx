@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import {
   getMissingUtilityBillsWarningsAction,
@@ -68,6 +68,7 @@ export function GenerateStatementsForm({
   const [previewRows, setPreviewRows] = useState<StatementPreviewRow[]>([]);
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [isPreviewing, startPreview] = useTransition();
+  const previewRef = useRef<HTMLDivElement>(null);
 
   const isAllProperties = propertyId === ALL_PROPERTIES_VALUE;
 
@@ -111,6 +112,12 @@ export function GenerateStatementsForm({
       setMissingBillWarnings(warnings);
     });
   }, [propertyId, month, year, isAllProperties]);
+
+  useEffect(() => {
+    if (previewLoaded && previewRef.current) {
+      previewRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [previewLoaded, previewRows]);
 
   function handlePreview() {
     const unitIds = [...selectedUnitIds];
@@ -377,15 +384,15 @@ export function GenerateStatementsForm({
 
       {!isAllProperties && (
         <div className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-foreground">Other costs (optional)</p>
               <p className="text-sm text-muted">
                 Add parking, repairs, one-off fees, or any extra charge. Each cost is added to
                 every selected unit&apos;s statement. Attach a receipt or bill if you have one.
               </p>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={addExtraCost}>
+            <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={addExtraCost}>
               <Plus className="mr-1 h-4 w-4" aria-hidden />
               Add cost
             </Button>
@@ -457,12 +464,12 @@ export function GenerateStatementsForm({
           {isPreviewing ? "Previewing…" : "Preview statements"}
         </Button>
         <SubmitButton disabled={selectedUnits.length === 0} pendingLabel="Generating…">
-          Generate draft statement{selectedUnits.length === 1 ? "" : "s"}
+          Generate draft{selectedUnits.length === 1 ? "" : "s"}
         </SubmitButton>
       </div>
 
       {previewLoaded && (
-        <div className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
+        <div ref={previewRef} className="space-y-3 rounded-lg border border-border bg-surface-muted/40 p-4">
           <div>
             <p className="text-sm font-medium text-foreground">Statement preview</p>
             <p className="text-sm text-muted">

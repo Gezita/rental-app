@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { isLocalDataOnlyDeploy } from "./deploy-config";
 
 const BLOCKED_MESSAGE =
-  "This hosted page does not store data. Install zigglo on your computer — see /get-started.";
+  "This hosted page does not store data. Install Lessora on your computer — see /get-started.";
 
 export function cloudDataBlockedResponse() {
   return NextResponse.json({ error: BLOCKED_MESSAGE }, { status: 403 });

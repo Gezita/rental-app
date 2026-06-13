@@ -111,7 +111,7 @@ export default async function NoticesPage({
       />
 
       <Alert variant="info">
-        Use this area to store Ontario rental notices and related paperwork. Zigglo helps organize
+        Use this area to store Ontario rental notices and related paperwork. Lessora helps organize
         your records, but it does not provide legal advice. Always confirm notice requirements with
         the LTB or a qualified professional.
       </Alert>
@@ -142,9 +142,6 @@ export default async function NoticesPage({
             a draft PDF ready to review against the official form.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <ButtonLink href="/documents/notices/wizard">Open notice wizard</ButtonLink>
-        </CardContent>
       </Card>
 
       <Card>
@@ -183,7 +180,7 @@ export default async function NoticesPage({
                       variant="outline"
                       size="sm"
                     >
-                      Download PDF
+                      Download
                     </ButtonLink>
                   </Td>
                 </Tr>

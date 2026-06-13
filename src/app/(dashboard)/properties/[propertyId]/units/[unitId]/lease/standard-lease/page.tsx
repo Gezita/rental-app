@@ -400,7 +400,7 @@ export default async function StandardLeaseWizardPage({
               </SubmitButton>
               <Link href={`/properties/${propertyId}/units/${unitId}/lease/wizard`}>
                 <Button type="button" variant="outline">
-                  Zigglo summary lease
+                  Lessora summary lease
                 </Button>
               </Link>
               <ButtonLink
