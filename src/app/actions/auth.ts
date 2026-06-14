@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { setSession, clearSession } from "@/lib/auth";
 import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
 import { zEmail, zOptionalString } from "@/lib/validation";
+import { safeAuthRedirectPath } from "@/lib/auth-redirect";
 
 const signUpSchema = z.object({
   email: zEmail,
@@ -51,13 +52,7 @@ export async function signUpAction(formData: FormData) {
 }
 
 function safeRedirectPath(next: string | undefined): string {
-  if (!next || !next.startsWith("/") || next.startsWith("//")) {
-    return "/dashboard";
-  }
-  if (next.startsWith("/sign-in") || next.startsWith("/sign-up")) {
-    return "/dashboard";
-  }
-  return next;
+  return safeAuthRedirectPath(next);
 }
 
 export async function signInAction(formData: FormData) {
@@ -79,7 +74,19 @@ export async function signInAction(formData: FormData) {
   }
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !(await bcrypt.compare(password, user.password))) {
+  if (!user) {
+    await recordFailure(email);
+    failRedirect();
+  }
+
+  if (!user.password) {
+    const errorUrl = new URL("/sign-in", "http://local");
+    errorUrl.searchParams.set("error", "google_only");
+    if (next) errorUrl.searchParams.set("next", next);
+    redirect(`${errorUrl.pathname}${errorUrl.search}`);
+  }
+
+  if (!(await bcrypt.compare(password, user.password))) {
     await recordFailure(email);
     failRedirect();
   }

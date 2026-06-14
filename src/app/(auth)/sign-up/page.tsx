@@ -14,6 +14,7 @@ import {
   Input,
   Label,
 } from "@/components/ui";
+import { GoogleAuthSection } from "@/components/google-sign-in-button";
 
 export default async function SignUpPage({
   searchParams,
@@ -49,6 +50,7 @@ export default async function SignUpPage({
                 {errorMessage}
               </FlashAlert>
             )}
+            <GoogleAuthSection />
             <form action={signUpAction} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>

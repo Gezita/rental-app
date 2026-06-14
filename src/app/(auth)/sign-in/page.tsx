@@ -15,6 +15,7 @@ import {
   Label,
 } from "@/components/ui";
 import { PasswordInput } from "@/components/password-input";
+import { GoogleAuthSection } from "@/components/google-sign-in-button";
 
 export default async function SignInPage({
   searchParams,
@@ -37,6 +38,15 @@ export default async function SignInPage({
     redirect("/dashboard");
   }
 
+  const errorMessage =
+    params.error === "google"
+      ? "Google sign-in failed. Please try again."
+      : params.error === "google_only"
+        ? "This account uses Google sign-in. Continue with Google below."
+        : params.error
+          ? "Invalid email or password."
+          : null;
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-md space-y-8">
@@ -50,11 +60,12 @@ export default async function SignInPage({
             <CardDescription>Manage your rental units and billing</CardDescription>
           </CardHeader>
           <CardContent>
-            {params.error && (
+            {errorMessage && (
               <FlashAlert variant="error" className="mb-4" clearParams={["error"]}>
-                Invalid email or password.
+                {errorMessage}
               </FlashAlert>
             )}
+            <GoogleAuthSection next={params.next} />
             <form action={signInAction} className="space-y-4">
               {params.next && <input type="hidden" name="next" value={params.next} />}
               <div className="space-y-2">
