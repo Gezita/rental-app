@@ -112,7 +112,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-muted">
-            Free for local install. Cloud plans from $10/mo.
+            Free for local install. Cloud plans from $1/unit/mo.
           </p>
         </div>
       </section>
@@ -350,7 +350,7 @@ export default async function HomePage() {
                   "Email via Resend (noreply@lessora.ca)",
                   "Tenant portal with online payments",
                   "Automatic backups",
-                  "Up to 10 units: $10/mo",
+                  "1–10 units: $1/unit/mo",
                   "15 units: $30/mo · 25 units: $50/mo",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2 text-sm">
