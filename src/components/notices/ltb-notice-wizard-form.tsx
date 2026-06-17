@@ -102,6 +102,8 @@ function buildFieldDefaults(
       defaults[field.name] = landlord.email;
     } else if (field.defaultFrom === "propertyAddress") {
       defaults[field.name] = propertyAddress;
+    } else if (field.defaultFrom === "tenantName") {
+      defaults[field.name] = `${tenant.firstName} ${tenant.lastName}`;
     }
   }
   return defaults;
@@ -533,8 +535,8 @@ export function LtbNoticeWizardForm({
               {selectedTenant.unitName}
             </p>
             <Alert variant="info">
-              The completed PDF is saved to your notices library. You can download it, email it to
-              the tenant, or print it to serve.
+              The PDF is saved to your notices library. For forms other than N4, Lessora creates a
+              structured draft summary to copy into the official LTB PDF and review before use.
             </Alert>
             <SubmitButton pendingLabel="Generating PDF…">Generate notice PDF</SubmitButton>
           </CardContent>

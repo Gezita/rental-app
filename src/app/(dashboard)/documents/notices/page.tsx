@@ -106,7 +106,12 @@ export default async function NoticesPage({
         title="Notices"
         description="Store Ontario rental notices, generate drafts, and email copies to tenants."
         actions={
-          <ButtonLink href="/documents/notices/wizard">Open notice wizard</ButtonLink>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href="/documents/notices/forms" variant="outline">
+              View all N forms
+            </ButtonLink>
+            <ButtonLink href="/documents/notices/wizard">Open notice wizard</ButtonLink>
+          </div>
         }
       />
 
@@ -136,12 +141,18 @@ export default async function NoticesPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Fill Official LTB Forms</CardTitle>
+          <CardTitle>Fill Official LTB N-Series Forms</CardTitle>
           <CardDescription>
-            Step through N-series notices with tenant and property details pre-filled, then generate
+            Step through any N-series form with tenant and property details pre-filled, then generate
             a draft PDF ready to review against the official form.
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-wrap gap-2">
+          <ButtonLink href="/documents/notices/forms" variant="outline">
+            Browse all N forms
+          </ButtonLink>
+          <ButtonLink href="/documents/notices/wizard">Start wizard</ButtonLink>
+        </CardContent>
       </Card>
 
       <Card>

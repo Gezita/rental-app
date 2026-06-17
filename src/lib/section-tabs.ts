@@ -10,7 +10,8 @@ export const billingTabs: PageTab[] = [
 
 export const documentsTabs: PageTab[] = [
   { href: "/documents", label: "All files", exact: true },
-  { href: "/documents/notices", label: "Notices" },
+  { href: "/documents/notices", label: "Notices", exact: true },
+  { href: "/documents/notices/forms", label: "LTB N forms" },
 ];
 
 export const settingsTabs: PageTab[] = [

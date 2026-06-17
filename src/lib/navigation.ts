@@ -32,7 +32,8 @@ export const dashboardNavItems: NavItem[] = [
     label: "Documents",
     children: [
       { href: "/documents", label: "All files", exact: true },
-      { href: "/documents/notices", label: "Notices" },
+      { href: "/documents/notices", label: "Notices", exact: true },
+      { href: "/documents/notices/forms", label: "LTB N forms" },
     ],
   },
   { href: "/maintenance", label: "Maintenance" },
