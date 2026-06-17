@@ -13,15 +13,14 @@ export function isLocalDataOnlyDeploy(): boolean {
 
 /** Paths allowed on a local-data-only (hosted landing) deploy. */
 export function isPublicLandingPath(pathname: string): boolean {
-  if (
-    pathname === "/get-started" ||
-    pathname === "/offline" ||
-    pathname === "/manifest.webmanifest"
-  ) {
+  const publicPaths = ["/", "/get-started", "/about", "/contact", "/privacy", "/offline", "/manifest.webmanifest"];
+  if (publicPaths.includes(pathname)) return true;
+
+  if (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) {
     return true;
   }
 
-  if (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up")) {
+  if (pathname.startsWith("/tenant/sign-in")) {
     return true;
   }
 

@@ -275,6 +275,274 @@ export async function generateLeasePdf(
   });
 }
 
+function formatNoticeDate(value?: Date | string | null): string {
+  if (!value) return "";
+  const date = typeof value === "string" ? new Date(`${value}T12:00:00`) : value;
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/**
+ * Renders a completed, print-ready reproduction of Ontario LTB Form N4
+ * (Notice to End your Tenancy Early for Non-payment of Rent).
+ */
+async function drawN4Notice(
+  pdf: PDFDocument,
+  font: PDFFont,
+  fontBold: PDFFont,
+  data: import("./ltb-notice-wizard").LtbNoticeWizardInput
+) {
+  const { computeN4RentOwing } = await import("./ltb-notice-wizard");
+  const { rows, totalOwingCents } = computeN4RentOwing(data.fieldValues);
+
+  const left = 50;
+  const right = 562;
+  const width = right - left;
+  const ink = rgb(0.1, 0.1, 0.1);
+  const muted = rgb(0.42, 0.42, 0.42);
+  const lineColor = rgb(0.7, 0.7, 0.7);
+
+  const state = { page: pdf.addPage([612, 792]), y: 754 };
+
+  const newPage = () => {
+    state.page = pdf.addPage([612, 792]);
+    state.y = 754;
+  };
+  const ensure = (needed: number) => {
+    if (state.y - needed < 56) newPage();
+  };
+  const text = (
+    value: string,
+    opts: { size?: number; bold?: boolean; x?: number; color?: typeof ink } = {}
+  ) => {
+    const size = opts.size ?? 10;
+    state.page.drawText(value, {
+      x: opts.x ?? left,
+      y: state.y,
+      size,
+      font: opts.bold ? fontBold : font,
+      color: opts.color ?? ink,
+    });
+  };
+  const lineDown = (delta: number) => {
+    state.y -= delta;
+  };
+  const para = (value: string, size = 10, indent = 0) => {
+    for (const ln of wrapText(value, font, size, width - indent)) {
+      ensure(size + 5);
+      text(ln, { size, x: left + indent });
+      lineDown(size + 5);
+    }
+  };
+  const labelValue = (label: string, value: string, size = 10) => {
+    ensure(size + 6);
+    text(label, { size, bold: true });
+    const labelWidth = fontBold.widthOfTextAtSize(label, size);
+    for (const ln of wrapText(value, font, size, width - labelWidth - 6)) {
+      text(ln, { size, x: left + labelWidth + 6 });
+      lineDown(size + 5);
+      // subsequent wrapped lines align under the value column
+    }
+  };
+  const sectionHeading = (value: string) => {
+    ensure(26);
+    lineDown(8);
+    text(value, { size: 11, bold: true });
+    lineDown(6);
+    state.page.drawLine({
+      start: { x: left, y: state.y + 2 },
+      end: { x: right, y: state.y + 2 },
+      thickness: 0.75,
+      color: lineColor,
+    });
+    lineDown(8);
+  };
+
+  // ── Header ──────────────────────────────────────────────────────────────
+  text("Notice to End your Tenancy Early", { size: 15, bold: true });
+  lineDown(18);
+  text("for Non-payment of Rent", { size: 15, bold: true });
+  lineDown(18);
+  text("Form N4 — Residential Tenancies Act, 2006", { size: 9, color: muted });
+  lineDown(11);
+  text("Landlord and Tenant Board (Ontario)", { size: 9, color: muted });
+  lineDown(14);
+
+  // ── Parties / unit ──────────────────────────────────────────────────────
+  labelValue("To (Tenant): ", data.tenantName);
+  labelValue("From (Landlord): ", data.landlordName);
+  labelValue("Address of the Rental Unit: ", data.propertyAddress || `${data.propertyName}, ${data.unitName}`);
+
+  // ── Reason ──────────────────────────────────────────────────────────────
+  sectionHeading("Reason for this Notice");
+  para(
+    "You are getting this notice because you have not paid the rent you owe. The total amount of rent you owe is shown below."
+  );
+  lineDown(2);
+  labelValue("Total amount of rent you owe: ", formatCents(totalOwingCents), 11);
+
+  sectionHeading("Deadline to Pay or Move Out");
+  labelValue("Termination date: ", formatNoticeDate(data.terminationDate));
+  para(
+    "You must pay the total amount of rent you owe or move out of the rental unit by the termination date. If you pay the full amount you owe, or you move out, by this date, this notice is void and you do not have to move out."
+  );
+
+  // ── Calculation table ───────────────────────────────────────────────────
+  sectionHeading("How the Amount Owing Was Calculated");
+
+  const cols = [
+    { label: "Rent period (from)", w: 0.24, align: "left" as const },
+    { label: "to", w: 0.2, align: "left" as const },
+    { label: "Rent charged", w: 0.19, align: "right" as const },
+    { label: "Rent paid", w: 0.18, align: "right" as const },
+    { label: "Rent owing", w: 0.19, align: "right" as const },
+  ];
+  const colX: number[] = [];
+  let acc = left;
+  for (const c of cols) {
+    colX.push(acc);
+    acc += c.w * width;
+  }
+  colX.push(right);
+  const rowHeight = 18;
+
+  const drawTableRow = (cells: string[], opts: { bold?: boolean; fill?: boolean } = {}) => {
+    ensure(rowHeight + 2);
+    const top = state.y + 4;
+    const bottom = top - rowHeight;
+    if (opts.fill) {
+      state.page.drawRectangle({
+        x: left,
+        y: bottom,
+        width,
+        height: rowHeight,
+        color: rgb(0.95, 0.93, 0.9),
+      });
+    }
+    // cell borders
+    state.page.drawRectangle({
+      x: left,
+      y: bottom,
+      width,
+      height: rowHeight,
+      borderColor: lineColor,
+      borderWidth: 0.5,
+    });
+    for (let i = 1; i < colX.length - 1; i++) {
+      state.page.drawLine({
+        start: { x: colX[i], y: top },
+        end: { x: colX[i], y: bottom },
+        thickness: 0.5,
+        color: lineColor,
+      });
+    }
+    cells.forEach((cell, i) => {
+      const align = cols[i].align;
+      const size = 9;
+      const cellFont = opts.bold ? fontBold : font;
+      const textWidth = cellFont.widthOfTextAtSize(cell, size);
+      const x =
+        align === "right" ? colX[i + 1] - 4 - textWidth : colX[i] + 4;
+      state.page.drawText(cell, {
+        x,
+        y: bottom + 5,
+        size,
+        font: cellFont,
+        color: ink,
+      });
+    });
+    state.y = bottom - 2;
+  };
+
+  drawTableRow(
+    cols.map((c) => c.label),
+    { bold: true, fill: true }
+  );
+  if (rows.length === 0) {
+    drawTableRow(["—", "—", "—", "—", "—"]);
+  } else {
+    for (const row of rows) {
+      drawTableRow([
+        formatNoticeDate(row.from),
+        formatNoticeDate(row.to),
+        formatCents(row.chargedCents),
+        formatCents(row.paidCents),
+        formatCents(row.owingCents),
+      ]);
+    }
+  }
+  // total row
+  ensure(rowHeight + 2);
+  {
+    const top = state.y + 4;
+    const bottom = top - rowHeight;
+    state.page.drawRectangle({
+      x: left,
+      y: bottom,
+      width,
+      height: rowHeight,
+      borderColor: lineColor,
+      borderWidth: 0.5,
+    });
+    state.page.drawText("Total amount of rent owing", {
+      x: colX[0] + 4,
+      y: bottom + 5,
+      size: 9,
+      font: fontBold,
+      color: ink,
+    });
+    const totalStr = formatCents(totalOwingCents);
+    state.page.drawText(totalStr, {
+      x: right - 4 - fontBold.widthOfTextAtSize(totalStr, 9),
+      y: bottom + 5,
+      size: 9,
+      font: fontBold,
+      color: ink,
+    });
+    state.y = bottom - 2;
+  }
+
+  // ── Signature ───────────────────────────────────────────────────────────
+  sectionHeading("Signature");
+  const roleLabel =
+    data.fieldValues.signerRole === "representative" ? "Representative" : "Landlord";
+  labelValue("Name: ", data.fieldValues.signerName || data.landlordName);
+  labelValue("Signing as: ", roleLabel);
+  labelValue("Phone: ", data.fieldValues.signerPhone || "");
+  labelValue("Date signed: ", formatNoticeDate(data.serviceDate));
+  lineDown(14);
+  ensure(20);
+  text("Signature: ", { bold: true });
+  state.page.drawLine({
+    start: { x: left + 60, y: state.y - 1 },
+    end: { x: left + 280, y: state.y - 1 },
+    thickness: 0.75,
+    color: lineColor,
+  });
+  lineDown(16);
+
+  // ── Address for service ─────────────────────────────────────────────────
+  sectionHeading("Address for Service");
+  para("This is where the tenant can give documents or payment to the landlord.");
+  lineDown(2);
+  for (const ln of (data.fieldValues.serviceAddress || "").split(/\r?\n/)) {
+    if (ln.trim()) para(ln.trim());
+  }
+  if (data.fieldValues.serviceEmail) labelValue("Email: ", data.fieldValues.serviceEmail);
+
+  // ── Footer note ─────────────────────────────────────────────────────────
+  lineDown(10);
+  ensure(30);
+  para(
+    "This form was prepared with Lessora as a reproduction of LTB Form N4. Confirm the current version and complete the Certificate of Service at tribunalsontario.ca/ltb/forms before serving.",
+    8,
+  );
+}
+
 export async function generateLtbNoticePdf(
   data: import("./ltb-notice-wizard").LtbNoticeWizardInput & {
     userId: string;
@@ -283,86 +551,91 @@ export async function generateLtbNoticePdf(
     tenantId?: string;
   }
 ) {
-  const { buildLtbNoticeFieldLines } = await import("./ltb-notice-wizard");
   const pdf = await PDFDocument.create();
   const font = await pdf.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const page = pdf.addPage([612, 792]);
-  const w = createPdfWriter(pdf, page, font, fontBold);
 
-  w.draw(`FORM ${data.formCode}`, 14, true);
-  w.draw(data.formName, 12, true);
-  w.draw("Landlord and Tenant Board — Ontario (Draft prepared with Lessora)", 9);
-  w.draw(
-    "Review against the official LTB PDF before serving. Official blank forms: tribunalsontario.ca/ltb/forms/",
-    9
-  );
-  w.y -= 8;
+  if (data.formCode.toUpperCase() === "N4") {
+    await drawN4Notice(pdf, font, fontBold, data);
+  } else {
+    const { buildLtbNoticeFieldLines } = await import("./ltb-notice-wizard");
+    const page = pdf.addPage([612, 792]);
+    const w = createPdfWriter(pdf, page, font, fontBold);
 
-  w.draw("Landlord", 13, true);
-  w.draw(`Name: ${data.landlordName}`);
-  if (data.landlordAddress) w.draw(`Address: ${data.landlordAddress}`);
-  if (data.landlordEmail) w.draw(`Email: ${data.landlordEmail}`);
-  if (data.landlordPhone) w.draw(`Phone: ${data.landlordPhone}`);
-  w.y -= 4;
-
-  w.draw("Tenant", 13, true);
-  w.draw(`Name: ${data.tenantName}`);
-  if (data.tenantEmail) w.draw(`Email: ${data.tenantEmail}`);
-  if (data.tenantPhone) w.draw(`Phone: ${data.tenantPhone}`);
-  w.y -= 4;
-
-  w.draw("Rental Unit", 13, true);
-  w.draw(`Property: ${data.propertyName}`);
-  w.draw(`Unit: ${data.unitName}`);
-  w.draw(`Address: ${data.propertyAddress}`);
-  w.y -= 4;
-
-  w.draw("Notice Details", 13, true);
-  w.draw(
-    `Date notice given: ${data.serviceDate.toLocaleDateString("en-CA", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })}`
-  );
-  if (data.terminationDate) {
+    w.draw(`FORM ${data.formCode}`, 14, true);
+    w.draw(data.formName, 12, true);
+    w.draw("Landlord and Tenant Board — Ontario (Draft prepared with Lessora)", 9);
     w.draw(
-      `Termination / effective date: ${data.terminationDate.toLocaleDateString("en-CA", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })}`
+      "Review against the official LTB PDF before serving. Official blank forms: tribunalsontario.ca/ltb/forms/",
+      9
     );
-  } else if (data.effectiveDate) {
-    w.draw(
-      `Effective date: ${data.effectiveDate.toLocaleDateString("en-CA", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      })}`
-    );
-  }
+    w.y -= 8;
 
-  for (const line of buildLtbNoticeFieldLines(data.formCode, data.fieldValues)) {
-    w.drawParagraph(line);
-  }
-
-  if (data.notes?.trim()) {
+    w.draw("Landlord", 13, true);
+    w.draw(`Name: ${data.landlordName}`);
+    if (data.landlordAddress) w.draw(`Address: ${data.landlordAddress}`);
+    if (data.landlordEmail) w.draw(`Email: ${data.landlordEmail}`);
+    if (data.landlordPhone) w.draw(`Phone: ${data.landlordPhone}`);
     w.y -= 4;
-    w.draw("Additional notes", 12, true);
-    w.drawParagraph(data.notes.trim());
-  }
 
-  w.y -= 8;
-  w.draw("Service & signatures", 13, true);
-  w.drawParagraph(
-    "Serve this notice according to the Residential Tenancies Act. Keep proof of service. Both parties should retain signed copies."
-  );
-  w.y -= 20;
-  w.draw("Landlord signature: _________________________    Date: ______________");
-  w.y -= 20;
-  w.draw("Tenant signature: ___________________________    Date: ______________");
+    w.draw("Tenant", 13, true);
+    w.draw(`Name: ${data.tenantName}`);
+    if (data.tenantEmail) w.draw(`Email: ${data.tenantEmail}`);
+    if (data.tenantPhone) w.draw(`Phone: ${data.tenantPhone}`);
+    w.y -= 4;
+
+    w.draw("Rental Unit", 13, true);
+    w.draw(`Property: ${data.propertyName}`);
+    w.draw(`Unit: ${data.unitName}`);
+    w.draw(`Address: ${data.propertyAddress}`);
+    w.y -= 4;
+
+    w.draw("Notice Details", 13, true);
+    w.draw(
+      `Date notice given: ${data.serviceDate.toLocaleDateString("en-CA", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })}`
+    );
+    if (data.terminationDate) {
+      w.draw(
+        `Termination / effective date: ${data.terminationDate.toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}`
+      );
+    } else if (data.effectiveDate) {
+      w.draw(
+        `Effective date: ${data.effectiveDate.toLocaleDateString("en-CA", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })}`
+      );
+    }
+
+    for (const line of buildLtbNoticeFieldLines(data.formCode, data.fieldValues)) {
+      w.drawParagraph(line);
+    }
+
+    if (data.notes?.trim()) {
+      w.y -= 4;
+      w.draw("Additional notes", 12, true);
+      w.drawParagraph(data.notes.trim());
+    }
+
+    w.y -= 8;
+    w.draw("Service & signatures", 13, true);
+    w.drawParagraph(
+      "Serve this notice according to the Residential Tenancies Act. Keep proof of service. Both parties should retain signed copies."
+    );
+    w.y -= 20;
+    w.draw("Landlord signature: _________________________    Date: ______________");
+    w.y -= 20;
+    w.draw("Tenant signature: ___________________________    Date: ______________");
+  }
 
   const pdfBytes = await pdf.save();
   const fileName = `${data.formCode}-${data.unitName.replace(/[^a-zA-Z0-9_-]/g, "_")}-${data.serviceDate.toISOString().slice(0, 10)}.pdf`;
@@ -372,7 +645,7 @@ export async function generateLtbNoticePdf(
     propertyId: data.propertyId,
     unitId: data.unitId,
     tenantId: data.tenantId,
-    notes: `${data.formCode} draft for ${data.tenantName}`,
+    notes: `${data.formCode} notice for ${data.tenantName}`,
     tags: data.formCode,
   });
 }

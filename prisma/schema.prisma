@@ -110,13 +110,29 @@ model Tenant {
   emergencyContactPhone String?
   isActive              Boolean   @default(true)
   notes                 String?
+  sessionNonce          String?
+  stripeCustomerId      String?   @unique
+  stripePaymentMethodId String?
+  autoPayEnabled        Boolean   @default(false)
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
-  unit       Unit        @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  unit       Unit              @relation(fields: [unitId], references: [id], onDelete: Cascade)
   leases     Lease[]
   statements Statement[]
   documents  Document[]
+  magicLinks TenantMagicLink[]
+}
+
+model TenantMagicLink {
+  id        String    @id @default(cuid())
+  tenantId  String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 }
 
 model Lease {

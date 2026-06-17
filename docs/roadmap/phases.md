@@ -15,11 +15,12 @@ Master delivery plan integrating product strategy, infrastructure, mobile, monet
 
 - [ ] **0.1** PostgreSQL in production (Neon) — see [production-plan.md](../../production-plan.md)
 - [ ] **0.2** File storage: local filesystem → Cloudflare R2
-- [ ] **0.3** Email: console stub → Resend (`src/server/emails/send.ts`)
+- [ ] **0.3** Email: console stub → Resend (`src/server/emails/send.ts`) — `RESEND_FROM_EMAIL=noreply@lessora.ca`, verify domain
 - [ ] **0.4** Production `SESSION_SECRET` and `NEXT_PUBLIC_APP_URL`
 - [ ] **0.5** Stripe webhooks verified in production
 - [ ] **0.6** Cron secured with `CRON_SECRET` for auto-billing
 - [ ] **0.7** Clarify hosted cloud vs local install (`isLocalDataOnlyDeploy`) — subscription/OAuth apply to cloud only
+- [ ] **0.8** Marketing home page at `/` for cloud deploy — hero, feature screenshots, sign-up/sign-in CTAs — see [marketing-and-tenant-portal.md](./marketing-and-tenant-portal.md)
 
 ### Exit criteria
 
@@ -71,6 +72,7 @@ Aligns with strategy Priority 1 gaps and UX success metrics.
 - [x] **1.13** Motion tokens + `prefers-reduced-motion` — see [ux-and-animation.md](./ux-and-animation.md)
 - [ ] **1.14** Skeleton loaders on dashboard, statements, properties
 - [ ] **1.15** Mobile nav slide; flash alert enter/exit
+- [ ] **1.16** About + Contact pages linked from marketing home
 
 ### Exit criteria
 
@@ -138,7 +140,7 @@ Phase 1 search/hub makes timeline more valuable.
 ## Phase 3 — Growth & retention
 
 **Timeline:** Weeks 18–28  
-**Goal:** Monetize hosted product, reduce friction, automate reminders, minimal tenant portal.
+**Goal:** Monetize hosted product, reduce friction, automate reminders, **full tenant portal** aligned with landlord data.
 
 ### Tasks
 
@@ -165,13 +167,18 @@ Phase 1 search/hub makes timeline more valuable.
 - [ ] **3.13** Inspection + maintenance reminders (after `scheduledFor`)
 - [ ] **3.14** Landlord notification preferences in Settings
 
-#### Tenant portal (minimal)
+#### Tenant portal
 
-- [ ] **3.15** Tenant auth via magic link or pay-token scope
-- [ ] **3.16** Download statements
-- [ ] **3.17** Submit maintenance request
-- [ ] **3.18** Upload document (optional)
-- [ ] **3.19** No payment required in portal (existing pay link remains)
+- [ ] **3.15** Tenant auth via magic link to `tenant.email`
+- [ ] **3.16** Statement list + PDF download (scoped to tenant's unit)
+- [ ] **3.17** Submit maintenance request from tenant side
+- [ ] **3.18** Shared documents view (lease, move-in — tenant-scoped only)
+- [ ] **3.19** Integrated Stripe pay in portal (not email-only pay link)
+- [ ] **3.22** Notices + announcements inbox (mirrors landlord communications)
+- [ ] **3.23** Tenant layout + mobile-responsive audit
+- [ ] **3.24** `requireTenantSession()` authorization — no landlord data leakage
+
+See [marketing-and-tenant-portal.md](./marketing-and-tenant-portal.md) for route map and privilege boundaries.
 
 #### UX polish
 
@@ -183,7 +190,8 @@ Phase 1 search/hub makes timeline more valuable.
 - Hosted signup → trial → subscribe flow works end-to-end
 - Overdue tenant receives SMS with pay link (with opt-in)
 - Google sign-in works on web
-- One beta tenant uses portal for statement download
+- One beta tenant uses portal for statements, pay, and notices
+- All tenant-facing email sends from `noreply@lessora.ca` in staging
 
 ### Dependencies
 

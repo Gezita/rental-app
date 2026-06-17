@@ -4,6 +4,7 @@ import { isLocalDataOnlyDeploy } from "@/lib/deploy-config";
 import { prisma } from "@/lib/db";
 import { recordStatementPayment } from "@/lib/record-payment";
 import { getStripe, isStripeConfigured } from "@/lib/stripe";
+import { saveTenantPaymentMethod } from "@/lib/tenant-stripe";
 import type Stripe from "stripe";
 
 export async function POST(request: Request) {
@@ -35,6 +36,22 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+
+    if (session.mode === "setup" && session.metadata?.purpose === "autopay_setup") {
+      const tenantId = session.metadata.tenantId;
+      if (tenantId && session.setup_intent) {
+        const setupIntent = await stripe.setupIntents.retrieve(String(session.setup_intent));
+        const paymentMethodId =
+          typeof setupIntent.payment_method === "string"
+            ? setupIntent.payment_method
+            : setupIntent.payment_method?.id;
+        if (paymentMethodId) {
+          await saveTenantPaymentMethod(tenantId, paymentMethodId, true);
+        }
+      }
+      return NextResponse.json({ received: true });
+    }
+
     const statementId = session.metadata?.statementId;
     const payToken = session.metadata?.payToken;
 

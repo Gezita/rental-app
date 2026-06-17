@@ -6,9 +6,11 @@ import { Button } from "@/components/ui";
 export function PayWithStripeButton({
   payToken,
   disabled,
+  returnTo,
 }: {
   payToken: string;
   disabled?: boolean;
+  returnTo?: "tenant" | "pay";
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export function PayWithStripeButton({
       const res = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ payToken }),
+        body: JSON.stringify({ payToken, returnTo }),
       });
       const data = await res.json();
       if (!res.ok) {

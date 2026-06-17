@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { shouldRedirectToCanonicalHost } from "@/lib/app-url";
 import { isLocalDataOnlyDeploy, isPublicLandingPath } from "@/lib/deploy-config";
 import { parseSessionToken } from "@/lib/session-token";
+import { parseTenantSessionToken, TENANT_SESSION_COOKIE } from "@/lib/tenant-session-token";
 
 const SESSION_COOKIE = "landlord_session";
 
@@ -15,13 +16,21 @@ const protectedPrefixes = [
   "/documents",
   "/maintenance",
   "/settings",
-  "/pay",
 ];
 
 function isProtectedPath(pathname: string) {
   return protectedPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
+}
+
+function isTenantPublicPath(pathname: string) {
+  return pathname === "/tenant/sign-in";
+}
+
+function isTenantProtectedPath(pathname: string) {
+  if (pathname === "/tenant") return true;
+  return pathname.startsWith("/tenant/") && !isTenantPublicPath(pathname);
 }
 
 function applySecurityHeaders(response: NextResponse) {
@@ -61,10 +70,6 @@ export async function middleware(request: NextRequest) {
       );
     }
 
-    if (pathname === "/") {
-      return applySecurityHeaders(NextResponse.redirect(new URL("/get-started", request.url)));
-    }
-
     if (!isPublicLandingPath(pathname)) {
       return applySecurityHeaders(
         NextResponse.redirect(new URL("/get-started", request.url))
@@ -81,6 +86,18 @@ export async function middleware(request: NextRequest) {
   if (isProtectedPath(pathname) && !isAuthenticated) {
     const signInUrl = new URL("/sign-in", request.url);
     signInUrl.searchParams.set("next", pathname);
+    return applySecurityHeaders(NextResponse.redirect(signInUrl));
+  }
+
+  const tenantSessionCookie = request.cookies.get(TENANT_SESSION_COOKIE)?.value;
+  const tenantParsed = await parseTenantSessionToken(tenantSessionCookie);
+  const isTenantAuthenticated = Boolean(tenantParsed);
+
+  if (isTenantProtectedPath(pathname) && !isTenantAuthenticated) {
+    const signInUrl = new URL("/tenant/sign-in", request.url);
+    if (pathname !== "/tenant") {
+      signInUrl.searchParams.set("next", pathname);
+    }
     return applySecurityHeaders(NextResponse.redirect(signInUrl));
   }
 

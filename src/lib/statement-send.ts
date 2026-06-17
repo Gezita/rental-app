@@ -113,6 +113,11 @@ export async function sendStatementById(statementId: string, userId: string) {
     },
   });
 
+  if (stripeEnabled && statement.tenant.autoPayEnabled) {
+    const { attemptAutoPayForStatement } = await import("@/lib/tenant-stripe");
+    await attemptAutoPayForStatement(statementId);
+  }
+
   return { payToken, payUrl };
 }
 

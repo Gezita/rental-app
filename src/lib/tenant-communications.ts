@@ -353,3 +353,44 @@ export function buildOnboardingEmailContent(params: {
 
   return { subject, text, html };
 }
+
+export function buildTenantMagicLinkEmailContent(params: {
+  tenantName: string;
+  unitName: string;
+  propertyName: string;
+  magicLinkUrl: string;
+  landlordName: string;
+}): StatementEmailContent {
+  const subject = `Sign in to your tenant portal — ${params.propertyName}`;
+  const bodyHtml = [
+    emailParagraph(`Hi ${params.tenantName},`),
+    emailParagraph(
+      `Use the button below to sign in to your Lessora tenant portal for ${params.unitName} at ${params.propertyName}. This link expires in 15 minutes and can only be used once.`
+    ),
+    emailButton("Sign in to tenant portal", params.magicLinkUrl),
+    emailParagraph(
+      "If you did not request this email, you can ignore it. Only someone with access to your inbox can use the link."
+    ),
+  ].join("");
+
+  const html = renderEmailLayout({
+    title: "Tenant portal sign-in",
+    preheader: `Sign in to view statements and documents for ${params.unitName}`,
+    landlordName: params.landlordName,
+    bodyHtml,
+    footerNote: "This secure sign-in link was sent from your landlord's Lessora account.",
+  });
+
+  const text = [
+    `Hi ${params.tenantName},`,
+    "",
+    `Sign in to your tenant portal for ${params.unitName} at ${params.propertyName}:`,
+    params.magicLinkUrl,
+    "",
+    "This link expires in 15 minutes and can only be used once.",
+    "",
+    params.landlordName,
+  ].join("\n");
+
+  return { subject, text, html };
+}

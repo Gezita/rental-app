@@ -6,6 +6,7 @@ Planning documents for Zigglo's product strategy, phased delivery, and platform 
 
 | File | Contents |
 |------|----------|
+| [marketing-and-tenant-portal.md](./marketing-and-tenant-portal.md) | Marketing site, tenant portal, email setup, infra gaps vs competitors |
 | [product-strategy.md](./product-strategy.md) | Positioning vs RentRedi, vision, success metrics, what to build / avoid |
 | [implementation-status.md](./implementation-status.md) | Strategy doc mapped to the current codebase |
 | [phases.md](./phases.md) | **Master phased roadmap** — Phase 0 through Phase 4 with checklists |
@@ -27,8 +28,8 @@ Planning documents for Zigglo's product strategy, phased delivery, and platform 
 
 | Phase | Name | Timeline (est.) | Focus |
 |-------|------|-----------------|-------|
-| **0** | Production foundation | Weeks 1–4 | Neon, R2, Resend, hosted vs local deploy |
-| **1** | Workspace speed | Weeks 4–10 | Search, document hub, utility profiles, mobile web |
+| **0** | Production foundation | Weeks 1–4 | Neon, R2, Resend, marketing home |
+| **1** | Workspace speed | Weeks 4–10 | Search, doc hub, About/Contact, mobile web |
 | **2** | Differentiators | Weeks 10–18 | Property timeline, health cards, expense rollup |
 | **3** | Growth & retention | Weeks 18–28 | Subscription, Google auth, reminders, tenant portal |
 | **4** | Platform expansion | Month 7+ | Native apps, OCR, deeper integrations |
@@ -41,8 +42,8 @@ See [phases.md](./phases.md) for full task checklists and dependencies.
 
 ## 90-day priority (if scope must be tight)
 
-1. Global search + property document hub  
-2. Utility profiles + billing workflow polish  
-3. Property timeline (MVP)  
-4. Mobile web upload + statement/overdue views  
-5. Production deploy (Neon + R2 + Resend)
+1. Resend live (`noreply@lessora.ca`) + Neon + R2  
+2. Marketing home page with sign-up funnel  
+3. Tenant portal MVP (statements, pay, notices)  
+4. Utility profiles + billing workflow polish  
+5. Property timeline (MVP)

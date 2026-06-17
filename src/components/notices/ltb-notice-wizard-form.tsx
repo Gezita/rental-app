@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { LtbNoticeWizardField } from "@/lib/ltb-notice-wizard";
 import { getLtbNoticeWizardFields } from "@/lib/ltb-notice-wizard";
 import { formatMoney } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { SubmitButton } from "@/components/submit-button";
 import {
   Alert,
@@ -49,11 +50,17 @@ export type LtbWizardForm = {
   downloadUrl: string;
 };
 
+export type LtbWizardLandlord = {
+  name: string;
+  email: string | null;
+};
+
 type LtbNoticeWizardFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   forms: LtbWizardForm[];
   properties: LtbWizardProperty[];
   tenants: LtbWizardTenant[];
+  landlord: LtbWizardLandlord;
   defaultFormCode?: string;
   defaultPropertyId?: string;
   defaultUnitId?: string;
@@ -68,38 +75,54 @@ function todayIso() {
 
 function buildFieldDefaults(
   fields: LtbNoticeWizardField[],
-  tenant: LtbWizardTenant | null
+  tenant: LtbWizardTenant | null,
+  landlord: LtbWizardLandlord,
+  property: LtbWizardProperty | null
 ): Record<string, string> {
   if (!tenant) return {};
+  const propertyAddress = property
+    ? [property.addressLine1, property.city].filter(Boolean).join(", ")
+    : "";
   const defaults: Record<string, string> = { serviceDate: todayIso() };
   for (const field of fields) {
+    // Selects always display their first option — seed it so validation and
+    // the generated PDF match what the user sees.
+    if (field.type === "select" && field.options?.[0]) {
+      defaults[field.name] = field.options[0].value;
+    }
     if (field.defaultFrom === "rentAmount") {
-      const cents =
-        field.name === "totalRentOwed" && tenant.unpaidRentCents > 0
-          ? tenant.unpaidRentCents
-          : tenant.rentAmountCents;
-      defaults[field.name] = (cents / 100).toFixed(2);
+      defaults[field.name] = (tenant.rentAmountCents / 100).toFixed(2);
     } else if (field.defaultFrom === "leaseEndDate" && tenant.leaseEndDate) {
       defaults[field.name] = tenant.leaseEndDate;
     } else if (field.defaultFrom === "today") {
       defaults[field.name] = todayIso();
+    } else if (field.defaultFrom === "landlordName") {
+      defaults[field.name] = landlord.name;
+    } else if (field.defaultFrom === "landlordEmail" && landlord.email) {
+      defaults[field.name] = landlord.email;
+    } else if (field.defaultFrom === "propertyAddress") {
+      defaults[field.name] = propertyAddress;
     }
   }
   return defaults;
 }
+
+const INVALID_CLASS = "border-danger ring-1 ring-danger/40 focus-visible:ring-danger";
 
 function FieldInput({
   field,
   value,
   onChange,
   hidden,
+  invalid,
 }: {
   field: LtbNoticeWizardField;
   value: string;
   onChange: (value: string) => void;
   hidden?: boolean;
+  invalid?: boolean;
 }) {
-  const className = hidden ? "hidden" : undefined;
+  const className = cn(hidden && "hidden", invalid && INVALID_CLASS);
 
   if (field.type === "textarea") {
     return (
@@ -111,6 +134,7 @@ function FieldInput({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className={className}
+        aria-invalid={invalid || undefined}
         tabIndex={hidden ? -1 : undefined}
       />
     );
@@ -124,6 +148,7 @@ function FieldInput({
         value={value || field.options[0]?.value || ""}
         onChange={(event) => onChange(event.target.value)}
         className={className}
+        aria-invalid={invalid || undefined}
         tabIndex={hidden ? -1 : undefined}
       >
         {field.options.map((option) => (
@@ -146,6 +171,7 @@ function FieldInput({
       value={value}
       onChange={(event) => onChange(event.target.value)}
       className={className}
+      aria-invalid={invalid || undefined}
       tabIndex={hidden ? -1 : undefined}
     />
   );
@@ -156,6 +182,7 @@ export function LtbNoticeWizardForm({
   forms,
   properties,
   tenants,
+  landlord,
   defaultFormCode = "N4",
   defaultPropertyId,
   defaultUnitId,
@@ -173,7 +200,8 @@ export function LtbNoticeWizardForm({
   const selectedForm = forms.find((form) => form.code === formCode) ?? forms[0];
   const wizardFields = useMemo(() => getLtbNoticeWizardFields(formCode), [formCode]);
 
-  const propertyUnits = properties.find((property) => property.id === propertyId)?.units ?? [];
+  const selectedProperty = properties.find((property) => property.id === propertyId) ?? null;
+  const propertyUnits = selectedProperty?.units ?? [];
   const filteredTenants = tenants.filter((tenant) => {
     if (propertyId && tenant.propertyId !== propertyId) return false;
     if (unitId && tenant.unitId !== unitId) return false;
@@ -186,8 +214,8 @@ export function LtbNoticeWizardForm({
     null;
 
   const fieldDefaults = useMemo(
-    () => buildFieldDefaults(wizardFields, selectedTenant),
-    [wizardFields, selectedTenant]
+    () => buildFieldDefaults(wizardFields, selectedTenant, landlord, selectedProperty),
+    [wizardFields, selectedTenant, landlord, selectedProperty]
   );
 
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
@@ -222,16 +250,43 @@ export function LtbNoticeWizardForm({
     setTenantId(match?.id ?? "");
   }
 
-  const canContinue =
-    step === 0
-      ? Boolean(formCode)
-      : step === 1
-        ? Boolean(propertyId && unitId && selectedTenant)
-        : step === 2
-          ? wizardFields
-              .filter((field) => field.required)
-              .every((field) => fieldValues[field.name]?.trim())
-          : true;
+  // Keys that are required but currently empty for the active step. When the
+  // user clicks Next, these get highlighted in red instead of silently blocking.
+  function missingForStep(targetStep: number): string[] {
+    if (targetStep === 0) {
+      return formCode ? [] : ["formCode"];
+    }
+    if (targetStep === 1) {
+      const missing: string[] = [];
+      if (!propertyId) missing.push("propertyId");
+      if (!unitId) missing.push("unitId");
+      if (!selectedTenant) missing.push("tenantId");
+      return missing;
+    }
+    if (targetStep === 2) {
+      return wizardFields
+        .filter((field) => field.required && !fieldValues[field.name]?.trim())
+        .map((field) => field.name);
+    }
+    return [];
+  }
+
+  const [showErrors, setShowErrors] = useState(false);
+  const currentMissing = missingForStep(step);
+  const invalidKeys = showErrors ? new Set(currentMissing) : new Set<string>();
+
+  function goToStep(next: number) {
+    setShowErrors(false);
+    setStep(next);
+  }
+
+  function handleNext() {
+    if (currentMissing.length > 0) {
+      setShowErrors(true);
+      return;
+    }
+    goToStep(Math.min(STEPS.length - 1, step + 1));
+  }
 
   return (
     <form action={action} className="space-y-6">
@@ -342,6 +397,8 @@ export function LtbNoticeWizardForm({
                 value={unitId}
                 onChange={(event) => handleUnitChange(event.target.value)}
                 required
+                aria-invalid={invalidKeys.has("unitId") || undefined}
+                className={cn(invalidKeys.has("unitId") && INVALID_CLASS)}
               >
                 <option value="">Select unit</option>
                 {propertyUnits.map((unit) => (
@@ -358,6 +415,8 @@ export function LtbNoticeWizardForm({
                 value={selectedTenant?.id ?? ""}
                 onChange={(event) => setTenantId(event.target.value)}
                 required
+                aria-invalid={invalidKeys.has("tenantId") || undefined}
+                className={cn(invalidKeys.has("tenantId") && INVALID_CLASS)}
               >
                 <option value="">Select tenant</option>
                 {filteredTenants.map((tenant) => (
@@ -405,20 +464,37 @@ export function LtbNoticeWizardForm({
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-2">
-            {wizardFields.map((field) => (
-              <div
-                key={field.name}
-                className={`space-y-2 ${field.type === "textarea" ? "md:col-span-2" : ""}`}
-              >
-                <Label htmlFor={field.name}>{field.label}</Label>
-                <FieldInput
-                  field={field}
-                  value={fieldValues[field.name] ?? ""}
-                  onChange={(value) => updateField(field.name, value)}
-                />
-                {field.helpText && <p className="text-xs text-muted">{field.helpText}</p>}
-              </div>
-            ))}
+            {(() => {
+              let lastSection: string | undefined;
+              return wizardFields.map((field) => {
+                const showSection = field.section && field.section !== lastSection;
+                lastSection = field.section ?? lastSection;
+                return (
+                  <Fragment key={field.name}>
+                    {showSection && (
+                      <p className="md:col-span-2 border-b border-border pb-1 text-sm font-semibold text-foreground">
+                        {field.section}
+                      </p>
+                    )}
+                    <div
+                      className={`space-y-2 ${field.type === "textarea" ? "md:col-span-2" : ""}`}
+                    >
+                      <Label htmlFor={field.name}>
+                        {field.label}
+                        {field.required && <span className="text-danger"> *</span>}
+                      </Label>
+                      <FieldInput
+                        field={field}
+                        value={fieldValues[field.name] ?? ""}
+                        onChange={(value) => updateField(field.name, value)}
+                        invalid={invalidKeys.has(field.name)}
+                      />
+                      {field.helpText && <p className="text-xs text-muted">{field.helpText}</p>}
+                    </div>
+                  </Fragment>
+                );
+              });
+            })()}
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="notes">Internal notes (optional)</Label>
               <Textarea
@@ -438,8 +514,10 @@ export function LtbNoticeWizardForm({
           <CardHeader>
             <CardTitle>Review & generate</CardTitle>
             <CardDescription>
-              Generates a draft PDF aligned with Form {formCode}. Review against the official LTB
-              PDF before serving.
+              {formCode === "N4"
+                ? "Generates a completed, print-ready Form N4 from the details above."
+                : `Generates a draft PDF aligned with Form ${formCode}.`}{" "}
+              Review against the official LTB PDF before serving.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
@@ -455,12 +533,19 @@ export function LtbNoticeWizardForm({
               {selectedTenant.unitName}
             </p>
             <Alert variant="info">
-              The generated PDF is saved to your notices library. You can email it to the tenant or
-              transfer the details into the official fillable PDF from the LTB website.
+              The completed PDF is saved to your notices library. You can download it, email it to
+              the tenant, or print it to serve.
             </Alert>
             <SubmitButton pendingLabel="Generating PDF…">Generate notice PDF</SubmitButton>
           </CardContent>
         </Card>
+      )}
+
+      {showErrors && currentMissing.length > 0 && (
+        <Alert variant="error">
+          Please complete the highlighted {currentMissing.length === 1 ? "field" : "fields"} to
+          continue.
+        </Alert>
       )}
 
       <div className="flex flex-wrap justify-between gap-3">
@@ -468,17 +553,13 @@ export function LtbNoticeWizardForm({
           type="button"
           variant="outline"
           disabled={step === 0}
-          onClick={() => setStep((current) => Math.max(0, current - 1))}
+          onClick={() => goToStep(Math.max(0, step - 1))}
         >
           <ChevronLeft className="mr-1 h-4 w-4" />
           Back
         </Button>
         {step < STEPS.length - 1 && (
-          <Button
-            type="button"
-            disabled={!canContinue}
-            onClick={() => setStep((current) => Math.min(STEPS.length - 1, current + 1))}
-          >
+          <Button type="button" onClick={handleNext}>
             Next
             <ChevronRight className="ml-1 h-4 w-4" />
           </Button>

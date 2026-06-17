@@ -53,16 +53,22 @@ export async function calculateUtilitySplits(
   }
 
   if (splitData.length > 0) {
-    const allocated = splitData.reduce((sum, row) => sum + row.amountCents, 0);
-    const remainder = bill.amountCents - allocated;
-    if (remainder !== 0) {
-      let largestIndex = 0;
-      for (let i = 1; i < splitData.length; i += 1) {
-        if (splitData[i].amountCents > splitData[largestIndex].amountCents) {
-          largestIndex = i;
+    // Only reconcile the rounding remainder when tenants are configured to pay
+    // the full bill (percentages total 100%). If the split is partial, the
+    // unallocated portion is landlord-paid and must NOT be forced onto a tenant.
+    const totalPercentage = splitData.reduce((sum, row) => sum + row.percentage, 0);
+    if (totalPercentage === 100) {
+      const allocated = splitData.reduce((sum, row) => sum + row.amountCents, 0);
+      const remainder = bill.amountCents - allocated;
+      if (remainder !== 0) {
+        let largestIndex = 0;
+        for (let i = 1; i < splitData.length; i += 1) {
+          if (splitData[i].amountCents > splitData[largestIndex].amountCents) {
+            largestIndex = i;
+          }
         }
+        splitData[largestIndex].amountCents += remainder;
       }
-      splitData[largestIndex].amountCents += remainder;
     }
   }
 

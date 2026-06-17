@@ -136,6 +136,10 @@ export default async function LtbNoticeWizardPage({
         forms={LTB_FORMS}
         properties={wizardProperties}
         tenants={wizardTenants}
+        landlord={{
+          name: user.settings?.landlordName || user.name || user.email,
+          email: user.email,
+        }}
         defaultFormCode={params.formCode || "N4"}
         defaultPropertyId={params.propertyId}
         defaultUnitId={params.unitId}

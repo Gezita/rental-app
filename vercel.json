@@ -1,5 +1,5 @@
 {
-  "buildCommand": "prisma db push --skip-generate && tsx prisma/seed.ts && next build",
+  "buildCommand": "prisma db push --skip-generate && next build",
   "framework": "nextjs",
   "installCommand": "npm install",
   "crons": [

@@ -14,6 +14,7 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const payToken = String(body.payToken || "");
+  const returnTo = body.returnTo === "tenant" ? "tenant" : "pay";
 
   if (!payToken) {
     return NextResponse.json({ error: "payToken is required" }, { status: 400 });
@@ -69,8 +70,14 @@ export async function POST(request: Request) {
       statementId: statement.id,
       payToken,
     },
-    success_url: `${appUrl}/pay/${payToken}?success=1`,
-    cancel_url: `${appUrl}/pay/${payToken}?cancelled=1`,
+    success_url:
+      returnTo === "tenant"
+        ? `${appUrl}/tenant/statements/${statement.id}?success=1`
+        : `${appUrl}/pay/${payToken}?success=1`,
+    cancel_url:
+      returnTo === "tenant"
+        ? `${appUrl}/tenant/statements/${statement.id}?cancelled=1`
+        : `${appUrl}/pay/${payToken}?cancelled=1`,
   });
 
   await prisma.statement.update({
