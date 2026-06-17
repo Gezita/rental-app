@@ -34,3 +34,41 @@ export async function requireStatement(userId: string, statementId: string) {
   return statement;
 }
 
+/**
+ * Validates that every association attached to an uploaded document belongs to
+ * the current user and that the property → unit → tenant chain is internally
+ * consistent. Any of the IDs may be omitted; only the provided ones are checked.
+ * Throws if an ID is missing, not owned, or inconsistent with the others.
+ *
+ * Call this before `saveUploadedFile()` whenever the association IDs come from
+ * untrusted form data, to prevent attaching documents to another landlord's
+ * property, unit, or tenant.
+ */
+export async function assertDocumentAssociations(
+  userId: string,
+  ids: { propertyId?: string; unitId?: string; tenantId?: string }
+) {
+  const { propertyId, unitId, tenantId } = ids;
+
+  if (propertyId) {
+    await requireProperty(userId, propertyId);
+  }
+
+  if (unitId) {
+    const unit = await requireUnit(userId, unitId);
+    if (propertyId && unit.propertyId !== propertyId) {
+      throw new Error("Unit does not belong to the given property");
+    }
+  }
+
+  if (tenantId) {
+    const tenant = await requireTenant(userId, tenantId);
+    if (unitId && tenant.unitId !== unitId) {
+      throw new Error("Tenant does not belong to the given unit");
+    }
+    if (propertyId && tenant.unit.propertyId !== propertyId) {
+      throw new Error("Tenant does not belong to the given property");
+    }
+  }
+}
+

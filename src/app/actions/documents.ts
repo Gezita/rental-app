@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { deleteDocumentFile } from "@/lib/files";
+import { assertDocumentAssociations } from "@/lib/ownership";
 
 async function detachDocumentReferences(documentId: string) {
   await prisma.$transaction([
@@ -91,6 +92,8 @@ export async function uploadDocumentAction(formData: FormData) {
   const file = formData.get("file") as File | null;
 
   if (!file || file.size === 0) redirect("/documents?error=file");
+
+  await assertDocumentAssociations(user.id, { propertyId, unitId });
 
   const { saveUploadedFile } = await import("@/lib/files");
   await saveUploadedFile(file, {

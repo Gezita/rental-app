@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { requireProperty } from "@/lib/ownership";
+import { requireProperty, assertDocumentAssociations } from "@/lib/ownership";
 import { zOptionalCents, zOptionalString, zRequiredString } from "@/lib/validation";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
@@ -40,6 +40,13 @@ export async function createMaintenanceAction(formData: FormData) {
 
   const property = await requireProperty(user.id, propertyId).catch(() => null);
   if (!property) redirect("/maintenance/new?error=required");
+
+  if (unitId) {
+    const ok = await assertDocumentAssociations(user.id, { propertyId, unitId })
+      .then(() => true)
+      .catch(() => false);
+    if (!ok) redirect("/maintenance/new?error=required");
+  }
 
   const file = formData.get("file") as File | null;
   let invoiceDocumentId: string | undefined;

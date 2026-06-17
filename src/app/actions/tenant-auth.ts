@@ -7,7 +7,7 @@ import { getAppUrl } from "@/lib/app-url";
 import { clearTenantSession } from "@/lib/tenant-auth";
 import { buildTenantMagicLinkEmailContent } from "@/lib/tenant-communications";
 import { createTenantMagicLink, findActiveTenantByEmail } from "@/lib/tenant-magic-link";
-import { isLocked, clearAttempts } from "@/lib/rate-limit";
+import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
 import { sendEmail } from "@/server/emails/send";
 import { zEmail } from "@/lib/validation";
 import { getTenantDisplayName, getTenantLandlordName } from "@/lib/tenant-auth";
@@ -31,6 +31,9 @@ export async function requestTenantMagicLinkAction(formData: FormData) {
   const tenant = await findActiveTenantByEmail(email);
 
   if (!tenant?.email) {
+    // Count probes of unknown/inactive emails toward the lockout, but keep the
+    // response identical to success to avoid leaking which emails are tenants.
+    await recordFailure(rateLimitKey);
     redirect("/tenant/sign-in?sent=1");
   }
 
@@ -53,6 +56,7 @@ export async function requestTenantMagicLinkAction(formData: FormData) {
       html: emailContent.html,
     });
   } catch {
+    await recordFailure(rateLimitKey);
     redirect("/tenant/sign-in?error=send");
   }
 

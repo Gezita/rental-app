@@ -15,7 +15,7 @@ import {
 } from "@/lib/tenant-communications";
 import { getLtbNoticeWizardFields, resolveLtbNoticeForm } from "@/lib/ltb-notice-wizard";
 import { parseValidDate } from "@/lib/validation";
-import { requireUnit } from "@/lib/ownership";
+import { requireUnit, assertDocumentAssociations } from "@/lib/ownership";
 import { zOptionalString, zRequiredString } from "@/lib/validation";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
@@ -145,7 +145,7 @@ export async function uploadLtbNoticeAction(formData: FormData) {
     redirect("/documents/notices?error=invalid_form");
   }
 
-  await requireProperty(user.id, propertyId);
+  await assertDocumentAssociations(user.id, { propertyId, unitId, tenantId });
 
   const { saveUploadedFile } = await import("@/lib/files");
   const doc = await saveUploadedFile(file, {
@@ -301,7 +301,7 @@ export async function uploadMaintenanceReceiptAction(formData: FormData) {
     redirect("/maintenance/receipts?error=required");
   }
 
-  await requireProperty(user.id, propertyId);
+  await assertDocumentAssociations(user.id, { propertyId, unitId });
 
   const { saveUploadedFile } = await import("@/lib/files");
   const amountCents = amount ? parseMoneyToCents(amount) : undefined;
