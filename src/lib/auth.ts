@@ -50,7 +50,9 @@ export const requireUser = cache(async () => {
 
 export async function setSession(userId: string) {
   const nonce = crypto.randomUUID().replace(/-/g, "");
-  await prisma.user.update({ where: { id: userId }, data: { sessionNonce: nonce } });
+  await withDbRetry(() =>
+    prisma.user.update({ where: { id: userId }, data: { sessionNonce: nonce } })
+  );
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, await createSessionToken(userId, nonce), {
     httpOnly: true,

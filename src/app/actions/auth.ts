@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { assertCloudDataAllowed } from "@/lib/cloud-guard";
 import { prisma } from "@/lib/db";
+import { withDbRetry } from "@/lib/db-retry";
 import { setSession, clearSession } from "@/lib/auth";
 import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
 import { zEmail, zOptionalString } from "@/lib/validation";
@@ -29,23 +30,27 @@ export async function signUpAction(formData: FormData) {
 
   const { email, password, name } = parsed.data;
 
-  const existing = await prisma.user.findUnique({ where: { email } });
+  const existing = await withDbRetry(() =>
+    prisma.user.findUnique({ where: { email } })
+  );
   if (existing) redirect("/sign-up?error=exists");
 
   const hashed = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      password: hashed,
-      name: name || undefined,
-      settings: {
-        create: {
-          landlordName: name || email.split("@")[0],
-          paymentInstructions: "Please contact your landlord for payment details.",
+  const user = await withDbRetry(() =>
+    prisma.user.create({
+      data: {
+        email,
+        password: hashed,
+        name: name || undefined,
+        settings: {
+          create: {
+            landlordName: name || email.split("@")[0],
+            paymentInstructions: "Please contact your landlord for payment details.",
+          },
         },
       },
-    },
-  });
+    })
+  );
 
   await setSession(user.id);
   redirect("/dashboard");
@@ -69,13 +74,15 @@ export async function signInAction(formData: FormData) {
     redirect(`${errorUrl.pathname}${errorUrl.search}`);
   }
 
-  if (await isLocked(email)) {
+  if (await withDbRetry(() => isLocked(email))) {
     failRedirect();
   }
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await withDbRetry(() =>
+    prisma.user.findUnique({ where: { email } })
+  );
   if (!user) {
-    await recordFailure(email);
+    await withDbRetry(() => recordFailure(email));
     failRedirect();
   }
 
@@ -87,11 +94,11 @@ export async function signInAction(formData: FormData) {
   }
 
   if (!(await bcrypt.compare(password, user.password))) {
-    await recordFailure(email);
+    await withDbRetry(() => recordFailure(email));
     failRedirect();
   }
 
-  await clearAttempts(email);
+  await withDbRetry(() => clearAttempts(email));
   await setSession(user.id);
   redirect(safeRedirectPath(next));
 }
