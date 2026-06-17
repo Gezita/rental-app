@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { isLocalDataOnlyDeploy } from "./deploy-config";
 import { prisma } from "./db";
+import { withDbRetry } from "./db-retry";
 import { createSessionToken, parseSessionToken } from "./session-token";
 
 const SESSION_COOKIE = "landlord_session";
@@ -15,10 +16,12 @@ export const getSessionUserId = cache(async (): Promise<string | null> => {
   const parsed = await parseSessionToken(token);
   if (!parsed) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: parsed.userId },
-    select: { id: true, sessionNonce: true },
-  });
+  const user = await withDbRetry(() =>
+    prisma.user.findUnique({
+      where: { id: parsed.userId },
+      select: { id: true, sessionNonce: true },
+    })
+  );
 
   if (!user || user.sessionNonce !== parsed.nonce) return null;
   return user.id;
@@ -34,10 +37,12 @@ export const requireUser = cache(async () => {
   const parsed = await parseSessionToken(token);
   if (!parsed) redirect("/sign-in");
 
-  const user = await prisma.user.findUnique({
-    where: { id: parsed.userId },
-    include: { settings: true },
-  });
+  const user = await withDbRetry(() =>
+    prisma.user.findUnique({
+      where: { id: parsed.userId },
+      include: { settings: true },
+    })
+  );
 
   if (!user || user.sessionNonce !== parsed.nonce) redirect("/sign-in");
   return user;
