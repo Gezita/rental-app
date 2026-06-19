@@ -61,7 +61,13 @@ export {
   deleteInspectionAction,
 } from "./inspections";
 
-export { updateIntegrationsAction } from "./integrations";
+export {
+  setStripePaymentsAction,
+  setDocusignAction,
+  connectStripeAction,
+  refreshStripeStatusAction,
+  stripeDashboardAction,
+} from "./integrations";
 
 export {
   saveLeaseDraftAction,

@@ -63,7 +63,7 @@ export default async function StatementDetailPage({
   const user = await requireUser();
 
   const statement = await prisma.statement.findFirst({
-    where: { id: statementId, unit: { property: { userId: user.id } } },
+    where: { id: statementId, unit: { property: { members: { some: { userId: user.id } } } } },
     include: {
       tenant: true,
       unit: { include: { property: true } },

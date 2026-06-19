@@ -27,7 +27,7 @@ export default async function LtbNoticeWizardPage({
 
   const [properties, tenants, unpaidByTenant] = await Promise.all([
     prisma.property.findMany({
-      where: { userId: user.id },
+      where: { members: { some: { userId: user.id } } },
       include: {
         units: {
           select: { id: true, name: true, rentAmountCents: true },
@@ -37,7 +37,7 @@ export default async function LtbNoticeWizardPage({
       orderBy: { name: "asc" },
     }),
     prisma.tenant.findMany({
-      where: { isActive: true, unit: { property: { userId: user.id } } },
+      where: { isActive: true, unit: { property: { members: { some: { userId: user.id } } } } },
       include: {
         unit: {
           include: {
@@ -55,7 +55,7 @@ export default async function LtbNoticeWizardPage({
     prisma.statement.findMany({
       where: {
         status: { in: ["sent", "overdue", "partial"] },
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
       },
       select: { tenantId: true, totalDueCents: true, paidAmountCents: true },
     }),

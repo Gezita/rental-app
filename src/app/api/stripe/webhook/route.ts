@@ -34,6 +34,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // Stripe Connect: keep each landlord's onboarding status mirrored on settings.
+  if (event.type === "account.updated") {
+    const account = event.data.object as Stripe.Account;
+    await prisma.userSettings.updateMany({
+      where: { stripeConnectAccountId: account.id },
+      data: {
+        stripeChargesEnabled: Boolean(account.charges_enabled),
+        stripePayoutsEnabled: Boolean(account.payouts_enabled),
+        stripeOnboardedAt: account.details_submitted ? new Date() : null,
+        ...(account.charges_enabled ? {} : { stripePaymentsEnabled: false }),
+      },
+    });
+    return NextResponse.json({ received: true });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 

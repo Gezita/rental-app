@@ -29,7 +29,7 @@ export default async function InspectionsPage({
   const params = await searchParams;
 
   const inspections = await prisma.inspection.findMany({
-    where: { property: { userId: user.id } },
+    where: { property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       unit: true,

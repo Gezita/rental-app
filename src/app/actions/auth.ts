@@ -15,6 +15,7 @@ const signUpSchema = z.object({
   email: zEmail,
   password: z.string().min(6, "Password must be at least 6 characters"),
   name: zOptionalString,
+  next: zOptionalString,
 });
 
 const signInSchema = z.object({
@@ -28,7 +29,7 @@ export async function signUpAction(formData: FormData) {
   const parsed = signUpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/sign-up?error=invalid");
 
-  const { email, password, name } = parsed.data;
+  const { email, password, name, next } = parsed.data;
 
   const existing = await withDbRetry(() =>
     prisma.user.findUnique({ where: { email } })
@@ -53,7 +54,7 @@ export async function signUpAction(formData: FormData) {
   );
 
   await setSession(user.id);
-  redirect("/dashboard");
+  redirect(safeRedirectPath(next));
 }
 
 function safeRedirectPath(next: string | undefined): string {

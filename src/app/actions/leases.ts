@@ -46,7 +46,7 @@ const generateStandardLeaseSchema = leaseBaseSchema.extend({
 export async function generateStandardLease2229eAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await prisma.unit.findFirst({
-    where: { id: unitId, property: { userId: user.id } },
+    where: { id: unitId, property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       utilityRules: true,
@@ -169,7 +169,7 @@ export async function generateStandardLease2229eAction(unitId: string, formData:
 export async function generateLeaseAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await prisma.unit.findFirst({
-    where: { id: unitId, property: { userId: user.id } },
+    where: { id: unitId, property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       utilityRules: true,

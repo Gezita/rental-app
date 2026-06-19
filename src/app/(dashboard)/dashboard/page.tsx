@@ -44,7 +44,7 @@ export default async function DashboardPage() {
   const reminderDays = settings?.leaseReminderDays ?? 30;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       units: {
         include: {
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
   const portfolio = computePortfolioStats(properties);
 
   const statements = await prisma.statement.findMany({
-    where: { unit: { property: { userId: user.id } } },
+    where: { unit: { property: { members: { some: { userId: user.id } } } } },
     select: {
       status: true,
       totalDueCents: true,
@@ -78,13 +78,13 @@ export default async function DashboardPage() {
   const [openMaintenance, monthlyPayments] = await Promise.all([
     prisma.maintenanceRecord.count({
       where: {
-        property: { userId: user.id },
+        property: { members: { some: { userId: user.id } } },
         status: { in: ["planned", "in_progress"] },
       },
     }),
     prisma.payment.aggregate({
       where: {
-        statement: { unit: { property: { userId: user.id } } },
+        statement: { unit: { property: { members: { some: { userId: user.id } } } } },
         paymentDate: { gte: monthStart, lte: monthEnd },
       },
       _sum: { amountCents: true },
@@ -127,7 +127,7 @@ export default async function DashboardPage() {
   const [overdueStatements, openMaintenanceByProperty] = await Promise.all([
     prisma.statement.findMany({
       where: {
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
         status: "overdue",
       },
       select: {
@@ -139,7 +139,7 @@ export default async function DashboardPage() {
     prisma.maintenanceRecord.groupBy({
       by: ["propertyId"],
       where: {
-        property: { userId: user.id },
+        property: { members: { some: { userId: user.id } } },
         status: { in: ["planned", "in_progress"] },
       },
       _count: { _all: true },
@@ -166,21 +166,21 @@ export default async function DashboardPage() {
   const [utilityRuleCount, statementCount, utilityBillCount, tenantUnit] = await Promise.all([
     prisma.utilityRule.count({
       where: {
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
         tenantPays: true,
         includedInRent: false,
         percentage: { gt: 0 },
       },
     }),
     prisma.statement.count({
-      where: { unit: { property: { userId: user.id } } },
+      where: { unit: { property: { members: { some: { userId: user.id } } } } },
     }),
     prisma.utilityBill.count({
-      where: { property: { userId: user.id } },
+      where: { property: { members: { some: { userId: user.id } } } },
     }),
     prisma.unit.findFirst({
       where: {
-        property: { userId: user.id },
+        property: { members: { some: { userId: user.id } } },
         tenants: { some: { isActive: true } },
       },
       select: { id: true, propertyId: true },

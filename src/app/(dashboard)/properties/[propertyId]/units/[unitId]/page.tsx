@@ -49,7 +49,7 @@ export default async function UnitDetailPage({
   const user = await requireUser();
 
   const unit = await prisma.unit.findFirst({
-    where: { id: unitId, propertyId, property: { userId: user.id } },
+    where: { id: unitId, propertyId, property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       tenants: { where: { isActive: true } },

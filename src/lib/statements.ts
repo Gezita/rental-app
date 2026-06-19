@@ -309,7 +309,7 @@ export async function generateStatementForUnit(
   }
 ) {
   const unit = await prisma.unit.findFirst({
-    where: { id: unitId, property: { userId } },
+    where: { id: unitId, property: { members: { some: { userId } } } },
     include: {
       property: true,
       tenants: { where: { isActive: true }, orderBy: { createdAt: "asc" } },
@@ -365,7 +365,7 @@ export async function generateStatementForUnit(
 
 export async function refreshStatement(userId: string, statementId: string) {
   const statement = await prisma.statement.findFirst({
-    where: { id: statementId, unit: { property: { userId } } },
+    where: { id: statementId, unit: { property: { members: { some: { userId } } } } },
     include: {
       unit: {
         include: {
@@ -464,7 +464,7 @@ export async function generateStatementsForProperty(
   }
 ) {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId },
+    where: { id: propertyId, members: { some: { userId } } },
     include: {
       units: {
         include: {

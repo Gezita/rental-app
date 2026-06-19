@@ -39,7 +39,7 @@ export default async function UtilityRulesPage({
 
   const [unit, profiles] = await Promise.all([
     prisma.unit.findFirst({
-      where: { id: unitId, propertyId, property: { userId: user.id } },
+      where: { id: unitId, propertyId, property: { members: { some: { userId: user.id } } } },
       include: { utilityRules: true, property: true },
     }),
     prisma.utilityProfile.findMany({

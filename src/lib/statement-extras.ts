@@ -41,7 +41,7 @@ export async function getUtilityBillsForGenerate(
   year: number
 ): Promise<GenerateUtilityBillRow[]> {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId },
+    where: { id: propertyId, members: { some: { userId } } },
     select: { id: true },
   });
   if (!property) return [];
@@ -72,7 +72,7 @@ export async function applyBillAttachmentsFromForm(
   formData: FormData
 ) {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId },
+    where: { id: propertyId, members: { some: { userId } } },
     select: { id: true },
   });
   if (!property) return;
@@ -108,7 +108,7 @@ export async function applyNewUtilityBillsFromForm(
   formData: FormData
 ) {
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId },
+    where: { id: propertyId, members: { some: { userId } } },
     select: { id: true },
   });
   if (!property) return;

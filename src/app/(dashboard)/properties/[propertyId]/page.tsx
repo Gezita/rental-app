@@ -4,9 +4,11 @@ import { ChevronRight, CircleDollarSign, FileText, FolderOpen, Home, Shield, Wre
 import { deletePropertyAction, updatePropertyFinancesAction } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getAppUrl } from "@/lib/app-url";
 import { formatMoney } from "@/lib/money";
 import { DOCUMENT_CATEGORIES, DOCUMENT_CATEGORY_LABELS } from "@/lib/document-constants";
 import { ConfirmDeleteForm } from "@/components/confirm-delete-form";
+import { PropertyMembersCard } from "@/components/property/members-card";
 import { FlashAlert } from "@/components/flash-alert";
 import { PageBackNav } from "@/components/layout/page-back-nav";
 import { StatCard } from "@/components/dashboard/stat-card";
@@ -31,14 +33,14 @@ export default async function PropertyDetailPage({
   searchParams,
 }: {
   params: Promise<{ propertyId: string }>;
-  searchParams: Promise<{ error?: string; deleted?: string; saved?: string }>;
+  searchParams: Promise<{ error?: string; deleted?: string; saved?: string; joined?: string }>;
 }) {
   const { propertyId } = await params;
   const query = await searchParams;
   const user = await requireUser();
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId: user.id },
+    where: { id: propertyId, members: { some: { userId: user.id } } },
     include: {
       units: {
         include: {
@@ -71,6 +73,21 @@ export default async function PropertyDetailPage({
     }),
   ]);
 
+  const [members, pendingInvites] = await Promise.all([
+    prisma.propertyMember.findMany({
+      where: { propertyId },
+      include: { user: { select: { name: true, email: true } } },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.propertyInvite.findMany({
+      where: { propertyId, status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, email: true, role: true, createdAt: true, token: true },
+    }),
+  ]);
+  const currentRole = members.find((m) => m.userId === user.id)?.role ?? "VIEWER";
+  const isOwner = currentRole === "OWNER";
+
   const documentCountByCategory = new Map(
     documentCounts.map((row) => [row.category, row._count._all])
   );
@@ -97,6 +114,52 @@ export default async function PropertyDetailPage({
       )}
       {query.deleted === "unit" && (
         <FlashAlert clearParams={["deleted"]}>Unit deleted.</FlashAlert>
+      )}
+      {query.joined && (
+        <FlashAlert clearParams={["joined"]}>
+          You now have {currentRole.toLowerCase()} access to {property.name}.
+        </FlashAlert>
+      )}
+      {query.saved === "invited" && (
+        <FlashAlert clearParams={["saved"]}>Invitation sent.</FlashAlert>
+      )}
+      {query.saved === "invited_no_email" && (
+        <FlashAlert variant="warning" clearParams={["saved"]}>
+          Invitation created, but the email couldn&apos;t be sent. Copy the invite link below and
+          share it directly.
+        </FlashAlert>
+      )}
+      {query.saved === "invite_resent" && (
+        <FlashAlert clearParams={["saved"]}>Invitation re-sent.</FlashAlert>
+      )}
+      {query.saved === "invite_revoked" && (
+        <FlashAlert clearParams={["saved"]}>Invitation revoked.</FlashAlert>
+      )}
+      {query.saved === "role_updated" && (
+        <FlashAlert clearParams={["saved"]}>Member role updated.</FlashAlert>
+      )}
+      {query.saved === "member_removed" && (
+        <FlashAlert clearParams={["saved"]}>Member removed.</FlashAlert>
+      )}
+      {query.error === "already_member" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          That person already has access to this property.
+        </FlashAlert>
+      )}
+      {query.error === "last_owner" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          A property must always have at least one owner.
+        </FlashAlert>
+      )}
+      {query.error === "last_owner_leave" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          You&apos;re the only owner — invite another owner before leaving.
+        </FlashAlert>
+      )}
+      {query.error === "invite_invalid" && (
+        <FlashAlert variant="error" clearParams={["error"]}>
+          Enter a valid email and role to send an invite.
+        </FlashAlert>
       )}
       {query.error === "delete_confirm" && (
         <FlashAlert variant="error" clearParams={["error"]}>
@@ -400,24 +463,35 @@ export default async function PropertyDetailPage({
         </Link>
       </div>
 
-      <Card className="border-red-200">
-        <CardHeader>
-          <CardTitle className="text-red-900">Delete property</CardTitle>
-          <CardDescription>
-            Permanently removes this property, all units, utility bills, statements, and
-            maintenance records. Documents will be unlinked but not deleted. This cannot be
-            undone.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ConfirmDeleteForm
-            action={deleteProperty}
-            entityName={property.name}
-            buttonLabel="Delete property"
-            description="All units and billing data under this property will be removed."
-          />
-        </CardContent>
-      </Card>
+      <PropertyMembersCard
+        propertyId={propertyId}
+        currentUserId={user.id}
+        currentRole={currentRole}
+        members={members}
+        invites={pendingInvites}
+        inviteBaseUrl={getAppUrl()}
+      />
+
+      {isOwner && (
+        <Card className="border-red-200">
+          <CardHeader>
+            <CardTitle className="text-red-900">Delete property</CardTitle>
+            <CardDescription>
+              Permanently removes this property, all units, utility bills, statements, and
+              maintenance records. Documents will be unlinked but not deleted. This cannot be
+              undone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ConfirmDeleteForm
+              action={deleteProperty}
+              entityName={property.name}
+              buttonLabel="Delete property"
+              description="All units and billing data under this property will be removed."
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

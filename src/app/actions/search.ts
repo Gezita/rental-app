@@ -29,7 +29,7 @@ export async function globalSearchAction(query: string): Promise<GlobalSearchRes
   const [properties, units, tenants, documents, statements] = await Promise.all([
     prisma.property.findMany({
       where: {
-        userId: user.id,
+        members: { some: { userId: user.id } },
         OR: [
           { name: { contains: q } },
           { addressLine1: { contains: q } },
@@ -41,7 +41,7 @@ export async function globalSearchAction(query: string): Promise<GlobalSearchRes
     }),
     prisma.unit.findMany({
       where: {
-        property: { userId: user.id },
+        property: { members: { some: { userId: user.id } } },
         name: { contains: q },
       },
       select: {
@@ -54,7 +54,7 @@ export async function globalSearchAction(query: string): Promise<GlobalSearchRes
     }),
     prisma.tenant.findMany({
       where: {
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
         OR: [
           { firstName: { contains: q } },
           { lastName: { contains: q } },
@@ -88,7 +88,7 @@ export async function globalSearchAction(query: string): Promise<GlobalSearchRes
     }),
     prisma.statement.findMany({
       where: {
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
         statementNumber: { contains: q },
       },
       select: {

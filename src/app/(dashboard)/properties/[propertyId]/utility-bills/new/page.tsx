@@ -15,7 +15,7 @@ export default async function NewUtilityBillPage({
   const { propertyId } = await params;
   const user = await requireUser();
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId: user.id },
+    where: { id: propertyId, members: { some: { userId: user.id } } },
   });
   if (!property) notFound();
 

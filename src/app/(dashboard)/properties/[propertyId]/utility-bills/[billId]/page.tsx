@@ -16,7 +16,7 @@ export default async function UtilityBillDetailPage({
   const user = await requireUser();
 
   const bill = await prisma.utilityBill.findFirst({
-    where: { id: billId, propertyId, property: { userId: user.id } },
+    where: { id: billId, propertyId, property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       splits: { include: { unit: true } },

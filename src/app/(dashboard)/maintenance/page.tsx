@@ -41,15 +41,15 @@ export default async function MaintenancePage({
   const params = await searchParams;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     orderBy: { name: "asc" },
   });
 
   const where: {
-    property: { userId: string; id?: string };
+    property: { members: { some: { userId: string } }; id?: string };
     status?: MaintenanceStatus | { in: MaintenanceStatus[] };
   } = {
-    property: { userId: user.id },
+    property: { members: { some: { userId: user.id } } },
   };
 
   if (params.propertyId) {

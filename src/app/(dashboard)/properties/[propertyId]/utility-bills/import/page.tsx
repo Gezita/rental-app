@@ -38,7 +38,7 @@ export default async function UtilityBillsImportPage({
   const user = await requireUser();
 
   const property = await prisma.property.findFirst({
-    where: { id: propertyId, userId: user.id },
+    where: { id: propertyId, members: { some: { userId: user.id } } },
     include: {
       units: {
         orderBy: { name: "asc" },

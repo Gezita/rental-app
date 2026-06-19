@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signUpAction } from "@/app/actions/auth";
 import { getSessionUserId } from "@/lib/auth";
+import { safeAuthRedirectPath } from "@/lib/auth-redirect";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { SubmitButton } from "@/components/submit-button";
 import { FlashAlert } from "@/components/flash-alert";
@@ -19,11 +20,11 @@ import { GoogleAuthSection } from "@/components/google-sign-in-button";
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string; email?: string }>;
 }) {
   const params = await searchParams;
   const userId = await getSessionUserId();
-  if (userId) redirect("/dashboard");
+  if (userId) redirect(safeAuthRedirectPath(params.next));
 
   const errorMessage =
     params.error === "exists"
@@ -50,15 +51,23 @@ export default async function SignUpPage({
                 {errorMessage}
               </FlashAlert>
             )}
-            <GoogleAuthSection />
+            <GoogleAuthSection next={params.next} />
             <form action={signUpAction} className="space-y-4">
+              {params.next && <input type="hidden" name="next" value={params.next} />}
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
                 <Input id="name" name="name" placeholder="Your name" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" name="email" type="email" required />
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  defaultValue={params.email}
+                  readOnly={Boolean(params.email)}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>

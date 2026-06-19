@@ -239,19 +239,19 @@ export async function sendAnnouncementEmailAction(formData: FormData) {
       where: {
         id: { in: tenantIds },
         isActive: true,
-        unit: { property: { userId: user.id } },
+        unit: { property: { members: { some: { userId: user.id } } } },
       },
       include: { unit: { include: { property: true } } },
     });
   } else if (propertyId) {
     await requireProperty(user.id, propertyId);
     tenants = await prisma.tenant.findMany({
-      where: { isActive: true, unit: { propertyId, property: { userId: user.id } } },
+      where: { isActive: true, unit: { propertyId, property: { members: { some: { userId: user.id } } } } },
       include: { unit: { include: { property: true } } },
     });
   } else {
     tenants = await prisma.tenant.findMany({
-      where: { isActive: true, unit: { property: { userId: user.id } } },
+      where: { isActive: true, unit: { property: { members: { some: { userId: user.id } } } } },
       include: { unit: { include: { property: true } } },
     });
   }
@@ -322,7 +322,7 @@ export async function uploadMaintenanceReceiptAction(formData: FormData) {
 
   if (maintenanceRecordId) {
     const record = await prisma.maintenanceRecord.findFirst({
-      where: { id: maintenanceRecordId, property: { userId: user.id } },
+      where: { id: maintenanceRecordId, property: { members: { some: { userId: user.id } } } },
     });
     if (record && !record.invoiceDocumentId) {
       await prisma.maintenanceRecord.update({

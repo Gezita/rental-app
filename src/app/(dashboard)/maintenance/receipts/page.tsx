@@ -31,7 +31,7 @@ export default async function MaintenanceReceiptsPage({
   const params = await searchParams;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       maintenanceRecords: {
         include: { unit: true, invoiceDocument: true },

@@ -113,7 +113,7 @@ export async function previewStatementsAction(
     const units = await prisma.unit.findMany({
       where: {
         id: { in: unitIds },
-        property: { userId: user.id },
+        property: { members: { some: { userId: user.id } } },
       },
       select: { id: true },
     });
@@ -153,7 +153,7 @@ export async function getMissingUtilityBillsWarningsAction(
   const properties =
     propertyId === "all"
       ? await prisma.property.findMany({
-          where: { userId: user.id },
+          where: { members: { some: { userId: user.id } } },
           select: { id: true, name: true },
           orderBy: { name: "asc" },
         })
@@ -222,7 +222,7 @@ export async function generateStatementsAction(formData: FormData) {
     const propertyIds = generateAll
       ? (
           await prisma.property.findMany({
-            where: { userId: user.id },
+            where: { members: { some: { userId: user.id } } },
             select: { id: true },
             orderBy: { name: "asc" },
           })
@@ -322,7 +322,7 @@ export async function generateDraftStatementPdfAction(statementId: string) {
   }
 
   const full = await prisma.statement.findFirst({
-    where: { id: statementId, unit: { property: { userId: user.id } } },
+    where: { id: statementId, unit: { property: { members: { some: { userId: user.id } } } } },
     include: {
       tenant: true,
       unit: { include: { property: true } },
@@ -493,7 +493,7 @@ export async function sendReceiptEmailAction(receiptId: string) {
   const receipt = await prisma.receipt.findFirst({
     where: {
       id: receiptId,
-      payment: { statement: { unit: { property: { userId: user.id } } } },
+      payment: { statement: { unit: { property: { members: { some: { userId: user.id } } } } } },
     },
     include: {
       payment: {
