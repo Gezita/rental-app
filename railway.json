@@ -4,6 +4,10 @@
     "builder": "RAILPACK"
   },
   "deploy": {
-    "preDeployCommand": ["npx prisma db push --skip-generate"]
+    "preDeployCommand": ["npx prisma db push --skip-generate"],
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 300,
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
   }
 }
