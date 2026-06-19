@@ -29,7 +29,7 @@ export async function previewStatementsForUnits(
   const units = await prisma.unit.findMany({
     where: {
       id: { in: unitIds },
-      property: { userId },
+      property: { members: { some: { userId } } },
     },
     include: {
       property: true,

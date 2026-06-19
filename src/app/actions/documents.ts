@@ -119,7 +119,7 @@ export async function uploadDocumentAction(formData: FormData) {
 export async function uploadLeaseAction(unitId: string, formData: FormData) {
   const user = await requireUser();
   const unit = await prisma.unit.findFirst({
-    where: { id: unitId, property: { userId: user.id } },
+    where: { id: unitId, property: { members: { some: { userId: user.id } } } },
     include: { tenants: { where: { isActive: true } } },
   });
   if (!unit) throw new Error("Unit not found");

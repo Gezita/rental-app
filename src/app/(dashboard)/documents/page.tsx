@@ -37,7 +37,7 @@ export default async function DocumentsPage({
 
   const [properties] = await Promise.all([
     prisma.property.findMany({
-      where: { userId: user.id },
+      where: { members: { some: { userId: user.id } } },
       orderBy: { name: "asc" },
     }),
   ]);

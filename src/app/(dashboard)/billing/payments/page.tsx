@@ -11,7 +11,7 @@ export default async function BillingPaymentsPage() {
   const user = await requireUser();
 
   const payments = await prisma.payment.findMany({
-    where: { statement: { unit: { property: { userId: user.id } } } },
+    where: { statement: { unit: { property: { members: { some: { userId: user.id } } } } } },
     include: {
       receipt: { include: { pdfDocument: true } },
       statement: {

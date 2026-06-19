@@ -46,12 +46,12 @@ export default async function NoticesPage({
 
   const [properties, tenants, uploadedNotices] = await Promise.all([
     prisma.property.findMany({
-      where: { userId: user.id },
+      where: { members: { some: { userId: user.id } } },
       include: { units: { include: { tenants: { where: { isActive: true } } } } },
       orderBy: { name: "asc" },
     }),
     prisma.tenant.findMany({
-      where: { isActive: true, unit: { property: { userId: user.id } } },
+      where: { isActive: true, unit: { property: { members: { some: { userId: user.id } } } } },
       include: { unit: { include: { property: true } } },
       orderBy: { lastName: "asc" },
     }),

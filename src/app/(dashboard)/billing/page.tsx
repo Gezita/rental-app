@@ -22,7 +22,7 @@ export default async function BillingWorkflowPage() {
   const monthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       units: {
         select: {

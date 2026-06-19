@@ -41,7 +41,7 @@ export default async function GenerateStatementsPage({
   const params = await searchParams;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       units: {
         orderBy: { name: "asc" },

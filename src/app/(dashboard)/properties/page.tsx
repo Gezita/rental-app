@@ -18,7 +18,7 @@ export default async function PropertiesPage({
   const { deleted } = await searchParams;
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       units: true,
       _count: { select: { utilityBills: true } },
@@ -63,9 +63,15 @@ export default async function PropertiesPage({
                 {properties.map((property) => {
                   const monthlyRent = property.units.reduce((s, u) => s + u.rentAmountCents, 0);
                   return (
-                    <Tr key={property.id}>
+                    <Tr key={property.id} className="relative cursor-pointer">
                       <Td className="font-medium">
-                        <div>{property.name}</div>
+                        <Link
+                          href={`/properties/${property.id}`}
+                          aria-label={`Open ${property.name}`}
+                          className="font-medium text-foreground after:absolute after:inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                        >
+                          {property.name}
+                        </Link>
                         <div className="mt-0.5 text-xs text-muted sm:hidden">
                           {property.addressLine1}, {property.city}
                         </div>
@@ -75,12 +81,8 @@ export default async function PropertiesPage({
                       </Td>
                       <Td>{property.units.length}</Td>
                       <Td className="hidden sm:table-cell">{formatMoney(monthlyRent)}</Td>
-                      <Td className="w-10 pr-3">
-                        <Link href={`/properties/${property.id}`} aria-label={`Open ${property.name}`}>
-                          <Button variant="ghost" size="sm" className="px-2">
-                            <ChevronRight className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                      <Td className="w-10 pr-3 text-right text-muted-foreground">
+                        <ChevronRight className="ml-auto h-4 w-4" />
                       </Td>
                     </Tr>
                   );

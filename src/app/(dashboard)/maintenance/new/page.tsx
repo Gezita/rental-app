@@ -9,7 +9,7 @@ export default async function NewMaintenancePage() {
   const user = await requireUser();
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: { units: true },
     orderBy: { name: "asc" },
   });

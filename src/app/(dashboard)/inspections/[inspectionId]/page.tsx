@@ -21,7 +21,7 @@ export default async function InspectionDetailPage({
   const user = await requireUser();
 
   const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, property: { userId: user.id } },
+    where: { id: inspectionId, property: { members: { some: { userId: user.id } } } },
     include: {
       property: true,
       unit: true,

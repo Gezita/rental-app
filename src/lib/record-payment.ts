@@ -25,7 +25,7 @@ export async function recordStatementPayment(params: {
   if (!user) throw new Error("User not found");
 
   const statement = await prisma.statement.findFirst({
-    where: { id: params.statementId, unit: { property: { userId: params.userId } } },
+    where: { id: params.statementId, unit: { property: { members: { some: { userId: params.userId } } } } },
     include: {
       tenant: true,
       unit: { include: { property: true } },

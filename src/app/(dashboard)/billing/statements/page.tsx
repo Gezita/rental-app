@@ -62,7 +62,7 @@ export default async function StatementsPage({
     prisma.statement.findMany({
       where: {
         unit: {
-          property: { userId: user.id },
+          property: { members: { some: { userId: user.id } } },
           ...(unitId ? { id: unitId } : {}),
         },
       },
@@ -73,7 +73,7 @@ export default async function StatementsPage({
       orderBy: [{ statementYear: "desc" }, { statementMonth: "desc" }],
     }),
     prisma.unit.findMany({
-      where: { property: { userId: user.id } },
+      where: { property: { members: { some: { userId: user.id } } } },
       include: {
         property: true,
         _count: { select: { statements: true } },

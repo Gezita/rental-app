@@ -23,7 +23,7 @@ export async function sendStatementById(statementId: string, userId: string) {
   if (!user) throw new Error("User not found");
 
   const statement = await prisma.statement.findFirst({
-    where: { id: statementId, unit: { property: { userId } } },
+    where: { id: statementId, unit: { property: { members: { some: { userId } } } } },
     include: {
       tenant: true,
       unit: { include: { property: true } },
@@ -129,7 +129,7 @@ export async function previewStatementEmail(statementId: string, userId: string)
   if (!user) throw new Error("User not found");
 
   const statement = await prisma.statement.findFirst({
-    where: { id: statementId, unit: { property: { userId } } },
+    where: { id: statementId, unit: { property: { members: { some: { userId } } } } },
     include: {
       tenant: true,
       unit: { include: { property: true } },

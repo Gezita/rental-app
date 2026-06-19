@@ -7,7 +7,7 @@ export async function syncOverdueStatements(userId: string) {
     where: {
       status: { in: ["sent", "partial"] },
       dueDate: { lt: now },
-      unit: { property: { userId } },
+      unit: { property: { members: { some: { userId } } } },
     },
     data: { status: "overdue" },
   });

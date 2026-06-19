@@ -24,7 +24,7 @@ export async function getLeasesEndingSoon(
     where: {
       status: "active",
       leaseEndDate: { not: null, gte: now, lte: cutoff },
-      unit: { property: { userId } },
+      unit: { property: { members: { some: { userId } } } },
     },
     include: {
       tenant: true,

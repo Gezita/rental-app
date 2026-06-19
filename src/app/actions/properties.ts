@@ -119,8 +119,19 @@ export async function createPropertyAction(formData: FormData) {
 
   const { name, addressLine1, city, province, postalCode } = parsed.data;
 
+  // The creator must also be an OWNER member — access is decided by PropertyMember,
+  // not Property.userId. Without this row the new property would be invisible to its
+  // own creator.
   const property = await prisma.property.create({
-    data: { userId: user.id, name, addressLine1, city, province, postalCode },
+    data: {
+      userId: user.id,
+      name,
+      addressLine1,
+      city,
+      province,
+      postalCode,
+      members: { create: { userId: user.id, role: "OWNER" } },
+    },
   });
 
   revalidatePath("/properties");
@@ -129,7 +140,7 @@ export async function createPropertyAction(formData: FormData) {
 
 export async function updatePropertyFinancesAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   const parsed = updatePropertyFinancesSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/properties/${propertyId}?error=finances`);
@@ -155,7 +166,7 @@ export async function updatePropertyFinancesAction(propertyId: string, formData:
 
 export async function deletePropertyAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  const property = await requireProperty(user.id, propertyId);
+  const property = await requireProperty(user.id, propertyId, "OWNER");
 
   const confirm = String(formData.get("confirm") || "").trim();
   if (confirm !== property.name) {
@@ -173,7 +184,7 @@ export async function deletePropertyAction(propertyId: string, formData: FormDat
 
 export async function createUnitAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   const parsed = createUnitSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect(`/properties/${propertyId}/units/new?error=required`);
@@ -190,7 +201,7 @@ export async function createUnitAction(propertyId: string, formData: FormData) {
 
 export async function updateUnitAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
 
   const parsed = createUnitSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -210,7 +221,7 @@ export async function updateUnitAction(unitId: string, formData: FormData) {
 
 export async function deleteUnitAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
 
   const confirm = String(formData.get("confirm") || "").trim();
   if (confirm !== unit.name) {
@@ -229,7 +240,7 @@ export async function deleteUnitAction(unitId: string, formData: FormData) {
 
 export async function createTenantAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
   const settings = await prisma.userSettings.findUnique({ where: { userId: user.id } });
 
   const parsed = createTenantSchema.safeParse(Object.fromEntries(formData));
@@ -376,7 +387,7 @@ export async function createTenantAction(unitId: string, formData: FormData) {
 
 export async function updateTenantAction(tenantId: string, formData: FormData) {
   const user = await requireUser();
-  const tenant = await requireTenant(user.id, tenantId);
+  const tenant = await requireTenant(user.id, tenantId, "MANAGER");
 
   const parsed = updateTenantSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -396,11 +407,8 @@ export async function updateTenantAction(tenantId: string, formData: FormData) {
 
 export async function moveOutTenantAction(tenantId: string, formData: FormData) {
   const user = await requireUser();
-  const tenant = await prisma.tenant.findFirst({
-    where: { id: tenantId, isActive: true, unit: { property: { userId: user.id } } },
-    include: { unit: true },
-  });
-  if (!tenant) {
+  const tenant = await requireTenant(user.id, tenantId, "MANAGER");
+  if (!tenant.isActive) {
     redirect("/properties?error=Tenant%20not%20found");
   }
 
@@ -426,7 +434,7 @@ export async function moveOutTenantAction(tenantId: string, formData: FormData) 
 
 export async function saveUtilityRulesAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
 
   for (const type of UTILITY_TYPES) {
     const tenantPays = formData.get(`${type}_tenantPays`) === "on";
@@ -454,7 +462,7 @@ export async function saveUtilityRulesAction(unitId: string, formData: FormData)
 
 export async function saveUtilityProfileAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
   const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
 
   const parsedName = zRequiredString.safeParse(formData.get("profileName"));
@@ -490,7 +498,7 @@ export async function saveUtilityProfileAction(unitId: string, formData: FormDat
 
 export async function applyUtilityProfileAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
   const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
 
   const profileId = String(formData.get("profileId") || "");
@@ -536,7 +544,7 @@ export async function applyUtilityProfileAction(unitId: string, formData: FormDa
 
 export async function deleteUtilityProfileAction(unitId: string, formData: FormData) {
   const user = await requireUser();
-  const unit = await requireUnit(user.id, unitId);
+  const unit = await requireUnit(user.id, unitId, "MANAGER");
   const utilitiesPath = `/properties/${unit.propertyId}/units/${unitId}/utilities`;
 
   const profileId = String(formData.get("profileId") || "");
@@ -552,7 +560,7 @@ export async function deleteUtilityProfileAction(unitId: string, formData: FormD
 
 export async function createUtilityBillAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   const parsed = createUtilityBillSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -722,7 +730,7 @@ async function replaceSpreadsheetBills(
 
 export async function previewUtilityBillsImportAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   const parsed = importPreviewSchema.safeParse(Object.fromEntries(formData));
   const utilityType = parsed.success ? parsed.data.utilityType : "gas";
@@ -759,7 +767,7 @@ export async function previewUtilityBillsImportAction(propertyId: string, formDa
 
 export async function importUtilityBillsXlsxAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   if (formData.get("confirmed") !== "true") {
     redirect(`/properties/${propertyId}/utility-bills/import?error=confirm_required`);
@@ -805,7 +813,7 @@ export async function importUtilityBillsXlsxAction(propertyId: string, formData:
 
 export async function addUtilityBillDatabaseAction(propertyId: string, formData: FormData) {
   const user = await requireUser();
-  await requireProperty(user.id, propertyId);
+  await requireProperty(user.id, propertyId, "MANAGER");
 
   const parsed = addBillDatabaseSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

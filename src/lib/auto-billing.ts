@@ -57,6 +57,9 @@ export async function runAutoBillingForUser(
       statementMonth: month,
       statementYear: year,
       autoSentAt: null,
+      // Auto-billing is scoped to the creator's OWN properties (the PropertyOwner
+      // relation drives generation above). Membership scoping would let a co-owner
+      // re-send the creator's drafts — keep this filtered by creator userId.
       unit: { property: { userId } },
     },
     include: { tenant: true },

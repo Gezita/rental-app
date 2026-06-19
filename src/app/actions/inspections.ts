@@ -54,7 +54,7 @@ export async function saveInspectionAction(inspectionId: string, formData: FormD
   const inspection = await prisma.inspection.findFirst({
     where: {
       id: inspectionId,
-      property: { userId: user.id },
+      property: { members: { some: { userId: user.id } } },
     },
     include: { items: true },
   });
@@ -111,7 +111,7 @@ export async function uploadInspectionItemPhotoAction(formData: FormData) {
   const item = await prisma.inspectionItem.findFirst({
     where: {
       id: inspectionItemId,
-      inspection: { property: { userId: user.id } },
+      inspection: { property: { members: { some: { userId: user.id } } } },
     },
     include: {
       inspection: { include: { property: true, unit: true } },
@@ -147,7 +147,7 @@ export async function deleteInspectionAction(inspectionId: string, formData: For
   const confirm = String(formData.get("confirm") || "").trim();
 
   const inspection = await prisma.inspection.findFirst({
-    where: { id: inspectionId, property: { userId: user.id } },
+    where: { id: inspectionId, property: { members: { some: { userId: user.id } } } },
     include: {
       items: { include: { photos: { include: { document: true } } } },
     },

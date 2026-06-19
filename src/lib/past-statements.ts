@@ -61,7 +61,7 @@ export async function createPastStatementForUnit(
   }
 ) {
   const unit = await prisma.unit.findFirst({
-    where: { id: params.unitId, property: { userId } },
+    where: { id: params.unitId, property: { members: { some: { userId } } } },
     include: {
       property: true,
       tenants: { where: { isActive: true } },

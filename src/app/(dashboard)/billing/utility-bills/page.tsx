@@ -16,7 +16,7 @@ export default async function UtilityBillsHubPage() {
   const user = await requireUser();
 
   const properties = await prisma.property.findMany({
-    where: { userId: user.id },
+    where: { members: { some: { userId: user.id } } },
     include: {
       _count: { select: { utilityBills: true, units: true } },
     },
