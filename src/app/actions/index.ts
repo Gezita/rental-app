@@ -33,7 +33,7 @@ export {
 
 export { createMaintenanceAction } from "./maintenance";
 
-export { updateSettingsAction, updateProfileAction } from "./settings";
+export { updateSettingsAction, updateProfileAction, changePasswordAction } from "./settings";
 
 export {
   uploadDocumentAction,

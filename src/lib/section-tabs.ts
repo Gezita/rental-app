@@ -17,6 +17,7 @@ export const documentsTabs: PageTab[] = [
 export const settingsTabs: PageTab[] = [
   { href: "/settings", label: "Account", exact: true },
   { href: "/settings/profile", label: "Profile" },
+  { href: "/settings/security", label: "Security" },
   { href: "/settings/integrations", label: "Integrations" },
 ];
 

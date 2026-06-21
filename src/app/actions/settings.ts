@@ -1,13 +1,17 @@
 "use server";
 
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { requireUser, setSession } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isLocked, recordFailure, clearAttempts } from "@/lib/rate-limit";
 import { zCheckbox, zOptionalString } from "@/lib/validation";
 
 // ── Schemas ──────────────────────────────────────────────────────────────────
+
+const PASSWORD_MIN_LENGTH = 12;
 
 const updateSettingsSchema = z.object({
   landlordName: z.string().trim().min(1, "Landlord name is required"),
@@ -27,6 +31,19 @@ const updateSettingsSchema = z.object({
 
 const updateProfileSchema = z.object({
   name: zOptionalString,
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN_LENGTH)
+    .regex(/[a-z]/)
+    .regex(/[A-Z]/)
+    .regex(/[0-9]/),
+  confirmPassword: z.string().min(1),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  path: ["confirmPassword"],
 });
 
 // ── Actions ───────────────────────────────────────────────────────────────────
@@ -89,4 +106,37 @@ export async function updateProfileAction(formData: FormData) {
   revalidatePath("/settings/profile");
   revalidatePath("/dashboard");
   redirect("/settings/profile?saved=1");
+}
+
+export async function changePasswordAction(formData: FormData) {
+  const user = await requireUser();
+
+  const parsed = changePasswordSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) redirect("/settings/security?error=invalid");
+
+  if (!user.password) redirect("/settings/security?error=google_only");
+
+  const attemptKey = `password-change:${user.id}`;
+  if (await isLocked(attemptKey)) redirect("/settings/security?error=locked");
+
+  const { currentPassword, newPassword } = parsed.data;
+  const currentPasswordMatches = await bcrypt.compare(currentPassword, user.password);
+  if (!currentPasswordMatches) {
+    await recordFailure(attemptKey);
+    redirect("/settings/security?error=current");
+  }
+
+  const isReusedPassword = await bcrypt.compare(newPassword, user.password);
+  if (isReusedPassword) redirect("/settings/security?error=reused");
+
+  const hashed = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { password: hashed },
+  });
+
+  await clearAttempts(attemptKey);
+  await setSession(user.id);
+  revalidatePath("/settings/security");
+  redirect("/settings/security?saved=password");
 }
